@@ -7,6 +7,7 @@
 // configured in src/start.ts.
 
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export interface CheckVendorInput {
   vendorId: string;
@@ -24,8 +25,16 @@ function validateInput(input: CheckVendorInput): CheckVendorInput {
 }
 
 export const checkVendorCompaniesHouseFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .validator(validateInput)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { data: vendor, error } = await context.supabase
+      .from("vendors")
+      .select("id")
+      .eq("id", data.vendorId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!vendor) throw new Error("Vendor not found or is not available to this user");
     const { runVendorCompaniesHouseCheck } = await import("./monitor.server");
     return runVendorCompaniesHouseCheck(data.vendorId, data.companyNumber, {
       persist: true,

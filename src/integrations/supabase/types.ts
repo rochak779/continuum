@@ -94,6 +94,7 @@ export type Database = {
           id: string
           source: string
           updated_at: string
+          updated_from_change_event_id: string | null
           vendor_id: string
           verified_at: string
         }
@@ -104,6 +105,7 @@ export type Database = {
           id?: string
           source: string
           updated_at?: string
+          updated_from_change_event_id?: string | null
           vendor_id: string
           verified_at: string
         }
@@ -114,6 +116,7 @@ export type Database = {
           id?: string
           source?: string
           updated_at?: string
+          updated_from_change_event_id?: string | null
           vendor_id?: string
           verified_at?: string
         }
@@ -283,6 +286,9 @@ export type Database = {
           id: string
           new_value: string | null
           previous_value: string | null
+          resolution_type: string | null
+          resolved_at: string | null
+          resolved_by: string | null
           severity: string
           snapshot_id: string | null
           source: string
@@ -299,6 +305,9 @@ export type Database = {
           id?: string
           new_value?: string | null
           previous_value?: string | null
+          resolution_type?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           severity: string
           snapshot_id?: string | null
           source?: string
@@ -315,6 +324,9 @@ export type Database = {
           id?: string
           new_value?: string | null
           previous_value?: string | null
+          resolution_type?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           severity?: string
           snapshot_id?: string | null
           source?: string
@@ -440,6 +452,10 @@ export type Database = {
       release_companies_house_scheduler_lease: {
         Args: { p_lease_token: string }
         Returns: undefined
+      }
+      verify_vendor_monitoring_alert: {
+        Args: { p_alert_id: string }
+        Returns: boolean
       }
     }
     Enums: {
