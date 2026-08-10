@@ -11,6 +11,7 @@ import {
   runCompaniesHouseCheck,
   type AlertRecord,
   type CheckOutcome,
+  type ChangeEventRecord,
   type FailureRecord,
   type MonitoringStore,
   type SnapshotRecord,
@@ -18,9 +19,8 @@ import {
 } from "./monitor";
 import {
   COMPANIES_HOUSE_SOURCE,
-  type CompaniesHouseAddress,
   type CompaniesHouseResult,
-  type NormalisedCompanySnapshot,
+  type JsonValue,
 } from "./types";
 
 function getApiKey(): string {
@@ -36,51 +36,42 @@ type AdminClient = Awaited<typeof import("@/integrations/supabase/client.server"
 
 export function createSupabaseMonitoringStore(db: AdminClient): MonitoringStore {
   return {
-    async getLatestSnapshot(vendorId): Promise<NormalisedCompanySnapshot | null> {
+    async getTrustProfile(vendorId) {
       const { data, error } = await db
-        .from("vendor_company_snapshots")
-        .select("*")
+        .from("trust_profile_attributes")
+        .select("attribute_key,current_value")
         .eq("vendor_id", vendorId)
-        .order("checked_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .eq("source", COMPANIES_HOUSE_SOURCE);
       if (error) throw error;
-      if (!data) return null;
-      return {
-        companyNumber: data.company_number,
-        companyName: data.company_name,
-        companyStatus: data.company_status,
-        companyType: data.company_type,
-        registeredOfficeAddress:
-          (data.registered_office_address as CompaniesHouseAddress | null) ?? null,
-        dateOfCreation: data.date_of_creation,
-        jurisdiction: data.jurisdiction,
-        accountsNextDue: data.accounts_next_due,
-        accountsStatus: data.accounts_status,
-        confirmationStatementNextDue: data.confirmation_statement_next_due,
-        sicCodes: data.sic_codes ?? [],
-      };
+      return Object.fromEntries(
+        data.map((row) => [row.attribute_key, row.current_value as JsonValue]),
+      );
     },
 
-    async insertSnapshot(record: SnapshotRecord & { vendorId: string }): Promise<void> {
-      const { error } = await db.from("vendor_company_snapshots").insert({
-        vendor_id: record.vendorId,
-        source: COMPANIES_HOUSE_SOURCE,
-        company_number: record.companyNumber,
-        company_name: record.companyName,
-        company_status: record.companyStatus,
-        company_type: record.companyType,
-        registered_office_address: (record.registeredOfficeAddress as unknown as null) ?? null,
-        date_of_creation: record.dateOfCreation,
-        jurisdiction: record.jurisdiction,
-        accounts_next_due: record.accountsNextDue,
-        accounts_status: record.accountsStatus,
-        confirmation_statement_next_due: record.confirmationStatementNextDue,
-        sic_codes: record.sicCodes,
-        raw_response: record.rawResponse as never,
-        checked_at: record.checkedAt,
-      });
+    async insertSnapshot(record: SnapshotRecord & { vendorId: string }): Promise<string> {
+      const { data, error } = await db
+        .from("vendor_company_snapshots")
+        .insert({
+          vendor_id: record.vendorId,
+          source: COMPANIES_HOUSE_SOURCE,
+          company_number: record.companyNumber,
+          company_name: record.companyName,
+          company_status: record.companyStatus,
+          company_type: record.companyType,
+          registered_office_address: (record.registeredOfficeAddress as unknown as null) ?? null,
+          date_of_creation: record.dateOfCreation,
+          jurisdiction: record.jurisdiction,
+          accounts_next_due: record.accountsNextDue,
+          accounts_status: record.accountsStatus,
+          confirmation_statement_next_due: record.confirmationStatementNextDue,
+          sic_codes: record.sicCodes,
+          raw_response: record.rawResponse as never,
+          checked_at: record.checkedAt,
+        })
+        .select("id")
+        .single();
       if (error) throw error;
+      return data.id;
     },
 
     async createTrustBaseline(records: TrustProfileAttributeRecord[]): Promise<void> {
@@ -97,6 +88,29 @@ export function createSupabaseMonitoringStore(db: AdminClient): MonitoringStore 
         { onConflict: "vendor_id,attribute_key", ignoreDuplicates: true },
       );
       if (error) throw error;
+    },
+
+    async insertChangeEvents(records: ChangeEventRecord[]): Promise<{ inserted: number }> {
+      if (records.length === 0) return { inserted: 0 };
+      const { data, error } = await db
+        .from("vendor_change_events")
+        .upsert(
+          records.map((record) => ({
+            vendor_id: record.vendorId,
+            snapshot_id: record.snapshotId,
+            source: record.source,
+            attribute_key: record.attribute,
+            previous_value: record.previousValue as never,
+            new_value: record.newValue as never,
+            severity: record.severity,
+            detected_at: record.detectedAt,
+            dedupe_key: record.dedupeKey,
+          })),
+          { onConflict: "dedupe_key", ignoreDuplicates: true },
+        )
+        .select("id");
+      if (error) throw error;
+      return { inserted: data?.length ?? 0 };
     },
 
     async insertAlerts(records: AlertRecord[]): Promise<{ inserted: number }> {
@@ -143,14 +157,17 @@ export function createSupabaseMonitoringStore(db: AdminClient): MonitoringStore 
 // previous snapshot (so results read as a baseline) and persists nothing.
 export function createNullStore(): MonitoringStore {
   return {
-    async getLatestSnapshot() {
-      return null;
+    async getTrustProfile() {
+      return {};
     },
     async insertSnapshot() {
-      /* dry run: nothing persisted */
+      return "dry-run-snapshot";
     },
     async createTrustBaseline() {
       /* dry run: nothing persisted */
+    },
+    async insertChangeEvents() {
+      return { inserted: 0 };
     },
     async insertAlerts() {
       return { inserted: 0 };

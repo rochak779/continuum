@@ -67,10 +67,18 @@ export interface NormalisedCompanySnapshot {
 
 export type Severity = "critical" | "attention" | "info";
 
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
 export interface DetectedChange {
   attribute: string;
-  previousValue: string | null;
-  newValue: string | null;
+  previousValue: JsonValue;
+  newValue: JsonValue;
   severity: Severity;
 }
 

@@ -5,12 +5,18 @@
 // end-to-end with an in-memory fake (see monitor.test.ts) covering the full
 // flow: API response -> snapshot -> comparison -> alert / failure.
 
-import { detectChanges, buildAlertDedupeKey } from "./detect-changes";
+import {
+  buildChangeDedupeKey,
+  detectChanges,
+  formatChangeValue,
+  type TrustProfile,
+} from "./detect-changes";
 import { normaliseCompanyProfile } from "./normalize";
 import {
   COMPANIES_HOUSE_SOURCE,
   type CompaniesHouseResult,
   type DetectedChange,
+  type JsonValue,
   type NormalisedCompanySnapshot,
 } from "./types";
 
@@ -30,6 +36,18 @@ export interface AlertRecord {
   dedupeKey: string;
 }
 
+export interface ChangeEventRecord {
+  vendorId: string;
+  snapshotId: string;
+  source: string;
+  attribute: string;
+  previousValue: JsonValue;
+  newValue: JsonValue;
+  severity: DetectedChange["severity"];
+  detectedAt: string;
+  dedupeKey: string;
+}
+
 export interface FailureRecord {
   vendorId: string;
   companyNumber: string;
@@ -43,7 +61,7 @@ export interface FailureRecord {
 export interface TrustProfileAttributeRecord {
   vendorId: string;
   attributeKey: string;
-  currentValue: unknown;
+  currentValue: JsonValue;
   source: string;
   verifiedAt: string;
 }
@@ -51,9 +69,10 @@ export interface TrustProfileAttributeRecord {
 // Storage boundary. `insertAlerts` MUST be idempotent on dedupeKey so repeated
 // checks never create duplicate alerts for the same detected change.
 export interface MonitoringStore {
-  getLatestSnapshot(vendorId: string): Promise<NormalisedCompanySnapshot | null>;
-  insertSnapshot(record: SnapshotRecord & { vendorId: string }): Promise<void>;
+  getTrustProfile(vendorId: string): Promise<TrustProfile>;
+  insertSnapshot(record: SnapshotRecord & { vendorId: string }): Promise<string>;
   createTrustBaseline(records: TrustProfileAttributeRecord[]): Promise<void>;
+  insertChangeEvents(records: ChangeEventRecord[]): Promise<{ inserted: number }>;
   insertAlerts(records: AlertRecord[]): Promise<{ inserted: number }>;
   recordFailure(record: FailureRecord): Promise<void>;
 }
@@ -63,12 +82,18 @@ export function buildTrustBaseline(
   snapshot: NormalisedCompanySnapshot,
   verifiedAt: string,
 ): TrustProfileAttributeRecord[] {
-  const values: Record<string, unknown> = {
+  const values: Record<string, JsonValue> = {
     company_number: snapshot.companyNumber,
     company_name: snapshot.companyName,
     company_status: snapshot.companyStatus,
     company_type: snapshot.companyType,
-    registered_office_address: snapshot.registeredOfficeAddress,
+    registered_address: snapshot.registeredOfficeAddress
+      ? Object.fromEntries(
+          Object.entries(snapshot.registeredOfficeAddress).filter(
+            (entry): entry is [string, string] => typeof entry[1] === "string",
+          ),
+        )
+      : null,
     date_of_creation: snapshot.dateOfCreation,
     jurisdiction: snapshot.jurisdiction,
     accounts_next_due: snapshot.accountsNextDue,
@@ -105,6 +130,7 @@ export type CheckOutcome =
       snapshot: NormalisedCompanySnapshot;
       changes: DetectedChange[];
       alertsCreated: number;
+      eventsCreated: number;
       isBaseline: boolean;
     }
   | {
@@ -152,13 +178,12 @@ export async function runCompaniesHouseCheck(
 
   const snapshot = normaliseCompanyProfile(result.data);
 
-  // Compare against the last stored snapshot BEFORE persisting the new one.
-  const previous = await store.getLatestSnapshot(vendorId);
-  const changes = detectChanges(previous, snapshot);
-  const isBaseline = previous === null;
+  const trustProfile = await store.getTrustProfile(vendorId);
+  const isBaseline = Object.keys(trustProfile).length === 0;
+  const changes = isBaseline ? [] : detectChanges(trustProfile, snapshot);
 
   // Preserve the new observation (append-only; never overwrites history).
-  await store.insertSnapshot({
+  const snapshotId = await store.insertSnapshot({
     ...snapshot,
     vendorId,
     rawResponse: result.data,
@@ -170,20 +195,34 @@ export async function runCompaniesHouseCheck(
   }
 
   let alertsCreated = 0;
+  let eventsCreated = 0;
   if (!isBaseline && changes.length > 0) {
-    const alertRecords: AlertRecord[] = changes.map((change) => ({
+    const eventRecords: ChangeEventRecord[] = changes.map((change) => ({
       vendorId,
+      snapshotId,
       source: COMPANIES_HOUSE_SOURCE,
       attribute: change.attribute,
       previousValue: change.previousValue,
       newValue: change.newValue,
       severity: change.severity,
+      detectedAt: checkedAt,
+      dedupeKey: buildChangeDedupeKey(vendorId, COMPANIES_HOUSE_SOURCE, change),
+    }));
+    eventsCreated = (await store.insertChangeEvents(eventRecords)).inserted;
+
+    const alertRecords: AlertRecord[] = changes.map((change) => ({
+      vendorId,
+      source: COMPANIES_HOUSE_SOURCE,
+      attribute: change.attribute,
+      previousValue: formatChangeValue(change.previousValue),
+      newValue: formatChangeValue(change.newValue),
+      severity: change.severity,
       checkedAt,
-      dedupeKey: buildAlertDedupeKey(vendorId, COMPANIES_HOUSE_SOURCE, change),
+      dedupeKey: buildChangeDedupeKey(vendorId, COMPANIES_HOUSE_SOURCE, change),
     }));
     const { inserted } = await store.insertAlerts(alertRecords);
     alertsCreated = inserted;
   }
 
-  return { status: "ok", snapshot, changes, alertsCreated, isBaseline };
+  return { status: "ok", snapshot, changes, alertsCreated, eventsCreated, isBaseline };
 }

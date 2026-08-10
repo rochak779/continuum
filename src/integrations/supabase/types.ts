@@ -164,6 +164,48 @@ export type Database = {
         }
         Relationships: []
       }
+      vendor_change_events: {
+        Row: {
+          attribute_key: string
+          dedupe_key: string
+          detected_at: string
+          id: string
+          new_value: Json | null
+          previous_value: Json | null
+          severity: string
+          snapshot_id: string
+          source: string
+          status: string
+          vendor_id: string
+        }
+        Insert: {
+          attribute_key: string
+          dedupe_key: string
+          detected_at?: string
+          id?: string
+          new_value?: Json | null
+          previous_value?: Json | null
+          severity: string
+          snapshot_id: string
+          source: string
+          status?: string
+          vendor_id: string
+        }
+        Update: {
+          attribute_key?: string
+          dedupe_key?: string
+          detected_at?: string
+          id?: string
+          new_value?: Json | null
+          previous_value?: Json | null
+          severity?: string
+          snapshot_id?: string
+          source?: string
+          status?: string
+          vendor_id?: string
+        }
+        Relationships: []
+      }
       vendor_company_snapshots: {
         Row: {
           accounts_next_due: string | null
