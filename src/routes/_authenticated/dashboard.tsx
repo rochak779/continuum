@@ -111,6 +111,7 @@ function DashboardPage() {
   const navigate = useNavigate();
   const [dismissed, setDismissed] = useState(false);
   const [comingSoon, setComingSoon] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
 
   const { data: vendors, isLoading } = useQuery({
     queryKey: ["vendors", "list"],
@@ -125,7 +126,8 @@ function DashboardPage() {
   });
 
   const vendorCount = vendors?.length ?? 0;
-  const showOnboarding = !isLoading && vendorCount === 0 && !dismissed;
+  const showOnboarding =
+    manualOpen || (!isLoading && vendorCount === 0 && !dismissed);
   const directory = vendorCount
     ? vendors!.slice(0, 5).map((v) => ({
         company_name: v.company_name,
@@ -149,7 +151,7 @@ function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button onClick={() => navigate({ to: "/vendors/new" })}>
+          <Button onClick={() => { setDismissed(false); setManualOpen(true); }}>
             <Plus className="mr-2 h-4 w-4" /> Add Vendors
           </Button>
           <button
@@ -388,7 +390,7 @@ function DashboardPage() {
               <button
                 type="button"
                 aria-label="Close"
-                onClick={() => setDismissed(true)}
+                onClick={() => { setDismissed(true); setManualOpen(false); }}
                 className="text-muted-foreground transition-colors hover:text-foreground"
               >
                 <X className="h-6 w-6" />
@@ -424,7 +426,7 @@ function DashboardPage() {
                   View import documentation
                 </a>
               </p>
-              <Button variant="outline" onClick={() => setDismissed(true)}>
+              <Button variant="outline" onClick={() => { setDismissed(true); setManualOpen(false); }}>
                 Cancel
               </Button>
             </div>
