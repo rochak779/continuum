@@ -83,6 +83,7 @@ export interface MonitoringStore {
   ): Promise<{ inserted: number; events: PersistedChangeEvent[] }>;
   insertAlerts(records: AlertRecord[]): Promise<{ inserted: number }>;
   recordFailure(record: FailureRecord): Promise<void>;
+  setMonitoringStatus(vendorId: string, status: "monitoring" | "failing"): Promise<void>;
 }
 
 export function buildActionableAlerts(events: PersistedChangeEvent[]): AlertRecord[] {
@@ -193,6 +194,7 @@ export async function runCompaniesHouseCheck(
       httpStatus: result.httpStatus,
       checkedAt,
     });
+    await store.setMonitoringStatus(vendorId, "failing");
     return {
       status: "failed",
       errorType: result.errorType,
@@ -240,6 +242,8 @@ export async function runCompaniesHouseCheck(
     const { inserted } = await store.insertAlerts(alertRecords);
     alertsCreated = inserted;
   }
+
+  await store.setMonitoringStatus(vendorId, "monitoring");
 
   return { status: "ok", snapshot, changes, alertsCreated, eventsCreated, isBaseline };
 }

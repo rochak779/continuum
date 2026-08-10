@@ -170,6 +170,14 @@ export function createSupabaseMonitoringStore(db: AdminClient): MonitoringStore 
       });
       if (error) throw error;
     },
+
+    async setMonitoringStatus(vendorId, status): Promise<void> {
+      const { error } = await db
+        .from("vendors")
+        .update({ monitoring_status: status })
+        .eq("id", vendorId);
+      if (error) throw error;
+    },
   };
 }
 
@@ -193,6 +201,9 @@ export function createNullStore(): MonitoringStore {
       return { inserted: 0 };
     },
     async recordFailure() {
+      /* dry run: nothing persisted */
+    },
+    async setMonitoringStatus() {
       /* dry run: nothing persisted */
     },
   };

@@ -24,6 +24,7 @@ function createFakeStore() {
   const seenDedupeKeys = new Set<string>();
   const seenEventKeys = new Set<string>();
   const eventIdsByKey = new Map<string, string>();
+  const monitoringStatuses: Array<"monitoring" | "failing"> = [];
 
   const store: MonitoringStore = {
     async getTrustProfile(vendorId) {
@@ -70,9 +71,20 @@ function createFakeStore() {
     async recordFailure(record) {
       failures.push(record);
     },
+    async setMonitoringStatus(_vendorId, status) {
+      monitoringStatuses.push(status);
+    },
   };
 
-  return { store, snapshots, alerts, failures, trustProfileAttributes, changeEvents };
+  return {
+    store,
+    snapshots,
+    alerts,
+    failures,
+    trustProfileAttributes,
+    changeEvents,
+    monitoringStatuses,
+  };
 }
 
 function okResult(overrides: Record<string, unknown> = {}): CompaniesHouseResult {
@@ -94,7 +106,8 @@ const VENDOR = "vendor-1";
 
 describe("runCompaniesHouseCheck", () => {
   it("persists a baseline snapshot on first successful lookup, no alerts", async () => {
-    const { store, snapshots, alerts, trustProfileAttributes } = createFakeStore();
+    const { store, snapshots, alerts, trustProfileAttributes, monitoringStatuses } =
+      createFakeStore();
     const outcome = await runCompaniesHouseCheck(
       { vendorId: VENDOR, companyNumber: "00000006" },
       {
@@ -115,6 +128,7 @@ describe("runCompaniesHouseCheck", () => {
     }
     expect(snapshots).toHaveLength(1);
     expect(alerts).toHaveLength(0);
+    expect(monitoringStatuses).toEqual(["monitoring"]);
     expect(trustProfileAttributes).toEqual(
       expect.arrayContaining([
         {
@@ -223,7 +237,8 @@ describe("runCompaniesHouseCheck", () => {
   });
 
   it("records a monitoring failure and writes no snapshot on API failure", async () => {
-    const { store, snapshots, alerts, failures, trustProfileAttributes } = createFakeStore();
+    const { store, snapshots, alerts, failures, trustProfileAttributes, monitoringStatuses } =
+      createFakeStore();
 
     const outcome = await runCompaniesHouseCheck(
       { vendorId: VENDOR, companyNumber: "00000006" },
@@ -244,6 +259,7 @@ describe("runCompaniesHouseCheck", () => {
     expect(snapshots).toHaveLength(0); // vendor data untouched
     expect(alerts).toHaveLength(0);
     expect(trustProfileAttributes).toHaveLength(0);
+    expect(monitoringStatuses).toEqual(["failing"]);
   });
 
   it("records a monitoring failure on a rate-limit (429) response", async () => {

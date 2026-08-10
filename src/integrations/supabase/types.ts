@@ -129,6 +129,7 @@ export type Database = {
           id: string
           internal_owner: string | null
           internal_vendor_id: string | null
+          monitoring_status: string
           owner_id: string
           risk_level: string | null
           source: string
@@ -143,6 +144,7 @@ export type Database = {
           id?: string
           internal_owner?: string | null
           internal_vendor_id?: string | null
+          monitoring_status?: string
           owner_id: string
           risk_level?: string | null
           source?: string
@@ -157,6 +159,7 @@ export type Database = {
           id?: string
           internal_owner?: string | null
           internal_vendor_id?: string | null
+          monitoring_status?: string
           owner_id?: string
           risk_level?: string | null
           source?: string
