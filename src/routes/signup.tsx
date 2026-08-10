@@ -388,20 +388,6 @@ function StepOrganization({
             value={value.companySize}
             onValueChange={(v) => set({ companySize: v })}
           />
-          <FieldSelect
-            label="Primary Currency"
-            placeholder="Select currency"
-            options={CURRENCIES}
-            value={value.primaryCurrency}
-            onValueChange={(v) => set({ primaryCurrency: v })}
-          />
-          <FieldSelect
-            label="Time Zone"
-            placeholder="Select time zone"
-            options={TIME_ZONES}
-            value={value.timeZone}
-            onValueChange={(v) => set({ timeZone: v })}
-          />
         </div>
       </div>
     </>
@@ -681,8 +667,6 @@ function StepReview({
           <SummaryRow label="Country" value={org.country} />
           <SummaryRow label="Industry" value={org.industry} />
           <SummaryRow label="Size" value={org.companySize} />
-          <SummaryRow label="Currency" value={org.primaryCurrency} />
-          <SummaryRow label="Time Zone" value={org.timeZone} />
         </SummaryCard>
 
         <SummaryCard
