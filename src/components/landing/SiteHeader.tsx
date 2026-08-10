@@ -37,9 +37,10 @@ export function SiteHeader() {
             Login
           </Link>
 
-          <Button className="rounded-lg bg-primary-container px-5 py-2.5 font-medium hover:bg-primary">
-            Get Started
+          <Button asChild className="rounded-lg bg-primary-container px-5 py-2.5 font-medium hover:bg-primary">
+            <Link to="/signup">Get Started</Link>
           </Button>
+
         </div>
       </div>
     </header>
