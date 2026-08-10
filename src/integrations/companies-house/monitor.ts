@@ -164,6 +164,7 @@ export type CheckOutcome =
       errorType: string;
       message: string;
       httpStatus?: number | undefined;
+      retryAfterSeconds?: number | undefined;
     };
 
 /**
@@ -200,6 +201,7 @@ export async function runCompaniesHouseCheck(
       errorType: result.errorType,
       message: result.message,
       httpStatus: result.httpStatus,
+      retryAfterSeconds: result.retryAfterSeconds,
     };
   }
 

@@ -123,6 +123,7 @@ export type Database = {
         Row: {
           category: string | null
           company_name: string
+          companies_house_number: string | null
           country: string | null
           created_at: string
           email: string | null
@@ -138,6 +139,7 @@ export type Database = {
         Insert: {
           category?: string | null
           company_name: string
+          companies_house_number?: string | null
           country?: string | null
           created_at?: string
           email?: string | null
@@ -153,6 +155,7 @@ export type Database = {
         Update: {
           category?: string | null
           company_name?: string
+          companies_house_number?: string | null
           country?: string | null
           created_at?: string
           email?: string | null
@@ -320,6 +323,39 @@ export type Database = {
         }
         Relationships: []
       }
+      vendor_monitoring_config: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          last_checked_at: string | null
+          next_check_at: string
+          provider: string
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_checked_at?: string | null
+          next_check_at?: string
+          provider: string
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_checked_at?: string | null
+          next_check_at?: string
+          provider?: string
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: []
+      }
       vendor_monitoring_failures: {
         Row: {
           checked_at: string
@@ -353,12 +389,58 @@ export type Database = {
         }
         Relationships: []
       }
+      vendor_monitoring_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          error_type: string | null
+          id: string
+          provider: string
+          started_at: string
+          status: string
+          trigger_type: string
+          vendor_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          error_type?: string | null
+          id?: string
+          provider: string
+          started_at?: string
+          status?: string
+          trigger_type: string
+          vendor_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          error_type?: string | null
+          id?: string
+          provider?: string
+          started_at?: string
+          status?: string
+          trigger_type?: string
+          vendor_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      acquire_companies_house_scheduler_lease: {
+        Args: { p_lease_seconds: number; p_lease_token: string }
+        Returns: boolean
+      }
+      release_companies_house_scheduler_lease: {
+        Args: { p_lease_token: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
