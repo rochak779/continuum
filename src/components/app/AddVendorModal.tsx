@@ -22,32 +22,32 @@ export function AddVendorModal({ isOpen, onClose, hideUpload }: AddVendorModalPr
   const options = [];
 
   options.push({
+    id: "erp",
     icon: <PlugZap className="h-6 w-6" />,
     title: "Connect your ERP",
     description:
       "Sync automatically with SAP, Oracle, NetSuite, and other major enterprise systems.",
     badge: comingSoon ? "Coming soon" : undefined,
     onClick: () => setComingSoon(true),
-    key: "erp",
   });
 
   if (!hideUpload) {
     options.push({
+      id: "upload",
       icon: <FileUp className="h-6 w-6" />,
       title: "Add vendors by uploading a file",
       description: "Import via CSV or Excel. Download our template for seamless mapping.",
       onClick: () => navigate({ to: "/vendors/upload" }),
-      key: "upload",
     });
   }
 
   options.push({
+    id: "manual",
     icon: <FilePen className="h-6 w-6" />,
     title: "Add vendors manually",
     description:
       "Enter details one by one using our structured intake form for strict data control.",
     onClick: () => navigate({ to: "/vendors/new" }),
-    key: "manual",
   });
 
   return (
