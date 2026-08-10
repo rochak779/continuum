@@ -2,11 +2,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
-  Store,
-  PlugZap,
-  FileUp,
-  FilePen,
-  X,
   Plus,
   Bell,
   ShieldCheck,
@@ -28,6 +23,7 @@ import {
 } from "recharts";
 
 import { AppShell } from "@/components/app/AppShell";
+import { AddVendorModal } from "@/components/app/AddVendorModal";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
