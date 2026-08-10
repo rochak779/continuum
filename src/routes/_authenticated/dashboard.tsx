@@ -145,7 +145,7 @@ function OptionCard({
   icon: React.ReactNode;
   title: string;
   description: string;
-  badge?: string;
+  badge?: string | undefined;
   onClick: () => void;
 }) {
   return (
