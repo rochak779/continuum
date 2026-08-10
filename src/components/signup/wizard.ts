@@ -81,8 +81,6 @@ export const organizationSchema = z.object({
   country: z.string().min(1, { message: "Select a country" }),
   industry: z.string().min(1, { message: "Select an industry" }),
   companySize: z.string().min(1, { message: "Select a company size" }),
-  primaryCurrency: z.string().min(1, { message: "Select a primary currency" }),
-  timeZone: z.string().min(1, { message: "Select a time zone" }),
 });
 
 export const detailsSchema = z.object({
@@ -115,8 +113,6 @@ export const emptyOrganization: OrganizationData = {
   country: "",
   industry: "",
   companySize: "",
-  primaryCurrency: "",
-  timeZone: "",
 };
 
 export const emptyDetails: DetailsData = {
