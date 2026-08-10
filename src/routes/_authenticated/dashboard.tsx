@@ -125,7 +125,8 @@ function DashboardPage() {
   });
 
   const vendorCount = vendors?.length ?? 0;
-  const showOnboarding = !isLoading && vendorCount === 0 && !dismissed;
+  const showOnboarding =
+    manualOpen || (!isLoading && vendorCount === 0 && !dismissed);
   const directory = vendorCount
     ? vendors!.slice(0, 5).map((v) => ({
         company_name: v.company_name,
