@@ -45,10 +45,16 @@ function buildAuthHeader(apiKey: string): string {
   return `Basic ${encoded}`;
 }
 
-function parseRetryAfter(headerValue: string | null): number | undefined {
+export function parseRetryAfter(
+  headerValue: string | null,
+  nowMs = Date.now(),
+): number | undefined {
   if (!headerValue) return undefined;
   const seconds = Number(headerValue);
-  return Number.isFinite(seconds) ? seconds : undefined;
+  if (Number.isFinite(seconds)) return seconds >= 0 ? seconds : undefined;
+  const retryAt = Date.parse(headerValue);
+  if (!Number.isFinite(retryAt)) return undefined;
+  return Math.max(0, Math.ceil((retryAt - nowMs) / 1_000));
 }
 
 /**
@@ -101,7 +107,7 @@ export async function fetchCompanyProfile(
       : {
           ok: false,
           errorType: "network_error",
-          message: error instanceof Error ? error.message : "Network request failed.",
+          message: "Network request failed.",
         };
   } finally {
     clearTimeout(timer);
@@ -172,12 +178,21 @@ export async function fetchCompanyProfile(
   }
 
   const profile = body as CompaniesHouseRawProfile;
-  // A profile with neither a company number nor a name is not usable.
-  if (!profile.company_number && !profile.company_name) {
+  const returnedNumber =
+    typeof profile.company_number === "string"
+      ? normaliseCompanyNumber(profile.company_number)
+      : null;
+  if (
+    returnedNumber !== canonical ||
+    typeof profile.company_name !== "string" ||
+    profile.company_name.trim() === "" ||
+    typeof profile.company_status !== "string" ||
+    profile.company_status.trim() === ""
+  ) {
     return {
       ok: false,
       errorType: "malformed_response",
-      message: "Companies House payload was missing core company fields.",
+      message: "Companies House payload had missing or inconsistent core company fields.",
       httpStatus: response.status,
     };
   }

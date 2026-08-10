@@ -86,16 +86,54 @@ export type Database = {
         }
         Relationships: []
       }
+      trust_profile_attributes: {
+        Row: {
+          attribute_key: string
+          confidence: string
+          current_value: Json
+          id: string
+          source: string
+          updated_at: string
+          updated_from_change_event_id: string | null
+          vendor_id: string
+          verified_at: string
+        }
+        Insert: {
+          attribute_key: string
+          confidence?: string
+          current_value: Json
+          id?: string
+          source: string
+          updated_at?: string
+          updated_from_change_event_id?: string | null
+          vendor_id: string
+          verified_at: string
+        }
+        Update: {
+          attribute_key?: string
+          confidence?: string
+          current_value?: Json
+          id?: string
+          source?: string
+          updated_at?: string
+          updated_from_change_event_id?: string | null
+          vendor_id?: string
+          verified_at?: string
+        }
+        Relationships: []
+      }
       vendors: {
         Row: {
           category: string | null
           company_name: string
+          companies_house_number: string | null
           country: string | null
           created_at: string
           email: string | null
           id: string
           internal_owner: string | null
           internal_vendor_id: string | null
+          monitoring_status: string
           owner_id: string
           risk_level: string | null
           source: string
@@ -104,12 +142,14 @@ export type Database = {
         Insert: {
           category?: string | null
           company_name: string
+          companies_house_number?: string | null
           country?: string | null
           created_at?: string
           email?: string | null
           id?: string
           internal_owner?: string | null
           internal_vendor_id?: string | null
+          monitoring_status?: string
           owner_id: string
           risk_level?: string | null
           source?: string
@@ -118,16 +158,60 @@ export type Database = {
         Update: {
           category?: string | null
           company_name?: string
+          companies_house_number?: string | null
           country?: string | null
           created_at?: string
           email?: string | null
           id?: string
           internal_owner?: string | null
           internal_vendor_id?: string | null
+          monitoring_status?: string
           owner_id?: string
           risk_level?: string | null
           source?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      vendor_change_events: {
+        Row: {
+          attribute_key: string
+          dedupe_key: string
+          detected_at: string
+          id: string
+          new_value: Json | null
+          previous_value: Json | null
+          severity: string
+          snapshot_id: string
+          source: string
+          status: string
+          vendor_id: string
+        }
+        Insert: {
+          attribute_key: string
+          dedupe_key: string
+          detected_at?: string
+          id?: string
+          new_value?: Json | null
+          previous_value?: Json | null
+          severity: string
+          snapshot_id: string
+          source: string
+          status?: string
+          vendor_id: string
+        }
+        Update: {
+          attribute_key?: string
+          dedupe_key?: string
+          detected_at?: string
+          id?: string
+          new_value?: Json | null
+          previous_value?: Json | null
+          severity?: string
+          snapshot_id?: string
+          source?: string
+          status?: string
+          vendor_id?: string
         }
         Relationships: []
       }
@@ -194,6 +278,7 @@ export type Database = {
       vendor_monitoring_alerts: {
         Row: {
           attribute_checked: string
+          change_event_id: string | null
           checked_at: string
           created_at: string
           dedupe_key: string
@@ -201,13 +286,18 @@ export type Database = {
           id: string
           new_value: string | null
           previous_value: string | null
+          resolution_type: string | null
+          resolved_at: string | null
+          resolved_by: string | null
           severity: string
+          snapshot_id: string | null
           source: string
           status: string
           vendor_id: string
         }
         Insert: {
           attribute_checked: string
+          change_event_id?: string | null
           checked_at: string
           created_at?: string
           dedupe_key: string
@@ -215,13 +305,18 @@ export type Database = {
           id?: string
           new_value?: string | null
           previous_value?: string | null
+          resolution_type?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           severity: string
+          snapshot_id?: string | null
           source?: string
           status?: string
           vendor_id: string
         }
         Update: {
           attribute_checked?: string
+          change_event_id?: string | null
           checked_at?: string
           created_at?: string
           dedupe_key?: string
@@ -229,9 +324,46 @@ export type Database = {
           id?: string
           new_value?: string | null
           previous_value?: string | null
+          resolution_type?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           severity?: string
+          snapshot_id?: string | null
           source?: string
           status?: string
+          vendor_id?: string
+        }
+        Relationships: []
+      }
+      vendor_monitoring_config: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          last_checked_at: string | null
+          next_check_at: string
+          provider: string
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_checked_at?: string | null
+          next_check_at?: string
+          provider: string
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_checked_at?: string | null
+          next_check_at?: string
+          provider?: string
+          updated_at?: string
           vendor_id?: string
         }
         Relationships: []
@@ -269,12 +401,62 @@ export type Database = {
         }
         Relationships: []
       }
+      vendor_monitoring_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          error_type: string | null
+          id: string
+          provider: string
+          started_at: string
+          status: string
+          trigger_type: string
+          vendor_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          error_type?: string | null
+          id?: string
+          provider: string
+          started_at?: string
+          status?: string
+          trigger_type: string
+          vendor_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          error_type?: string | null
+          id?: string
+          provider?: string
+          started_at?: string
+          status?: string
+          trigger_type?: string
+          vendor_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      acquire_companies_house_scheduler_lease: {
+        Args: { p_lease_seconds: number; p_lease_token: string }
+        Returns: boolean
+      }
+      release_companies_house_scheduler_lease: {
+        Args: { p_lease_token: string }
+        Returns: undefined
+      }
+      verify_vendor_monitoring_alert: {
+        Args: { p_alert_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

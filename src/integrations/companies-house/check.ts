@@ -2,54 +2,46 @@
 //
 // This is the app-facing entry point (e.g. a future "Run check now" button).
 // The handler runs server-side only; it dynamically imports the server-only
-// run-check module so the service-role Supabase client and API key never
-// reach the client bundle. Auth is enforced by the attachSupabaseAuth function
-// middleware configured in src/start.ts.
+// monitor so the service-role Supabase client and API key never reach the
+// client bundle. Auth is enforced by the attachSupabaseAuth function middleware
+// configured in src/start.ts.
 
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { matchesMonitoredCompanyNumber } from "./authorization";
 
 export interface CheckVendorInput {
   vendorId: string;
+  companyNumber: string;
 }
 
 function validateInput(input: CheckVendorInput): CheckVendorInput {
   if (!input || typeof input.vendorId !== "string" || !input.vendorId) {
     throw new Error("vendorId is required");
   }
-  return { vendorId: input.vendorId };
-}
-
-// A "run check now" button only needs to know the outcome, not the full
-// snapshot payload (whose normalized_data shape varies by provider) — so the
-// handler maps to a small, always-JSON-serializable summary rather than
-// returning RunVendorCheckOutcome verbatim.
-export interface CheckVendorResult {
-  status: "success" | "failed" | "skipped" | "no_identifier" | "vendor_not_found";
-  runId?: string;
-  snapshotId?: string;
-  errorType?: string;
-  errorMessage?: string;
+  if (typeof input.companyNumber !== "string" || !input.companyNumber) {
+    throw new Error("companyNumber is required");
+  }
+  return { vendorId: input.vendorId, companyNumber: input.companyNumber };
 }
 
 export const checkVendorCompaniesHouseFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .validator(validateInput)
-  .handler(async ({ data }): Promise<CheckVendorResult> => {
-    const { runVendorCompaniesHouseCheck } = await import("./run-check.server");
-    const outcome = await runVendorCompaniesHouseCheck(data.vendorId, { triggerType: "manual" });
-
-    switch (outcome.status) {
-      case "success":
-        return { status: "success", runId: outcome.runId, snapshotId: outcome.snapshotId };
-      case "failed":
-        return {
-          status: "failed",
-          runId: outcome.runId,
-          errorType: outcome.error.type,
-          errorMessage: outcome.error.message,
-        };
-      case "skipped":
-      case "no_identifier":
-      case "vendor_not_found":
-        return { status: outcome.status };
+  .handler(async ({ data, context }) => {
+    const { data: vendor, error } = await context.supabase
+      .from("vendors")
+      .select("id,companies_house_number")
+      .eq("id", data.vendorId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!vendor) throw new Error("Vendor not found or is not available to this user");
+    if (!matchesMonitoredCompanyNumber(vendor.companies_house_number, data.companyNumber)) {
+      throw new Error("Company number does not match this vendor's monitored identifier");
     }
+    const { runRecordedManualCompaniesHouseCheck } = await import("./scheduler.server");
+    return runRecordedManualCompaniesHouseCheck({
+      vendorId: data.vendorId,
+      companyNumber: data.companyNumber,
+    });
   });

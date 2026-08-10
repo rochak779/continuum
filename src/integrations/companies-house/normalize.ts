@@ -15,9 +15,10 @@ function cleanString(value: unknown): string | null {
 
 function cleanAddress(address: CompaniesHouseAddress | undefined): CompaniesHouseAddress | null {
   if (!address || typeof address !== "object") return null;
-  const entries = Object.entries(address).filter(
-    ([, v]) => typeof v === "string" && v.trim().length > 0,
-  );
+  const entries = Object.entries(address)
+    .filter((entry): entry is [string, string] => typeof entry[1] === "string")
+    .map(([key, value]) => [key, value.trim()] as const)
+    .filter(([, value]) => value.length > 0);
   return entries.length > 0 ? (Object.fromEntries(entries) as CompaniesHouseAddress) : null;
 }
 
@@ -39,7 +40,14 @@ export function normaliseCompanyProfile(
   profile: CompaniesHouseRawProfile,
 ): NormalisedCompanySnapshot {
   const sicCodes = Array.isArray(profile.sic_codes)
-    ? profile.sic_codes.filter((c): c is string => typeof c === "string").map((c) => c.trim())
+    ? [
+        ...new Set(
+          profile.sic_codes
+            .filter((code): code is string => typeof code === "string")
+            .map((code) => code.trim())
+            .filter(Boolean),
+        ),
+      ]
     : [];
 
   return {

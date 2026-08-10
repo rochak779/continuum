@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { formatDistanceToNow } from "date-fns";
 import {
   Plus,
   Bell,
@@ -11,22 +12,16 @@ import {
   SlidersHorizontal,
   MoreVertical,
 } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
 import { AppShell } from "@/components/app/AppShell";
 import { AddVendorModal } from "@/components/app/AddVendorModal";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { buildDashboardSummary } from "@/lib/dashboard-data";
+import { VENDOR_HEALTH_LABELS, type VendorHealth } from "@/lib/vendor-health";
+import type { Json } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -49,55 +44,26 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
 });
 
-const healthData = [
-  { name: "Healthy", value: 118, color: "var(--success)" },
-  { name: "Attention", value: 18, color: "var(--warning)" },
-  { name: "Critical", value: 6, color: "var(--destructive)" },
-];
+const HEALTH_COLORS: Record<VendorHealth, string> = {
+  healthy: "var(--success)",
+  attention_required: "var(--warning)",
+  critical: "var(--destructive)",
+  monitoring_issue: "var(--muted-foreground)",
+};
 
-const alertsByType = [
-  { type: "Financial", count: 8 },
-  { type: "Security", count: 5 },
-  { type: "Compliance", count: 4 },
-  { type: "News", count: 6 },
-  { type: "Ops", count: 1 },
-];
+const ATTRIBUTE_LABELS: Record<string, string> = {
+  company_status: "Company Status",
+  company_name: "Company Name",
+  registered_address: "Address",
+  sic_codes: "SIC Codes",
+};
 
-const upcoming = [
-  { initials: "GL", name: "Globex Corporation", detail: "Annual Review", due: "In 5 Days", tone: "muted" },
-  { initials: "IN", name: "Initech", detail: "SOC 2 Expiry", due: "Tomorrow", tone: "critical" },
-  { initials: "UM", name: "Umbrella Corp", detail: "Insurance Renewal", due: "In 14 Days", tone: "muted" },
-] as const;
-
-const materialChanges = [
-  {
-    icon: TrendingDown,
-    vendor: "Acme Supplies Ltd",
-    headline: "Status changed to Critical",
-    detail: "Financial health score dropped significantly in Q3.",
-    time: "2 hours ago",
-  },
-  {
-    icon: UserCog,
-    vendor: "Beta Logistics",
-    headline: "Director change detected",
-    detail: "CEO John Doe stepped down unexpectedly.",
-    time: "5 hours ago",
-  },
-];
-
-const tasks = [
-  { task: "Review Financial Alert", vendor: "Acme Supplies Ltd", priority: "High", due: "Overdue", overdue: true, action: "Review" },
-  { task: "Request new SOC 2 report", vendor: "Initech", priority: "Medium", due: "Tomorrow", overdue: false, action: "Send Request" },
-  { task: "Acknowledge Leadership Change", vendor: "Beta Logistics", priority: "Low", due: "Oct 25, 2023", overdue: false, action: "Acknowledge" },
-];
-
-const sampleVendors = [
-  { company_name: "Acme Supplies Ltd", category: "Hardware", risk_level: "Critical", status: "Active" },
-  { company_name: "Soylent Corp", category: "Food Services", risk_level: "Low", status: "Active" },
-  { company_name: "Initech", category: "Software", risk_level: "Medium", status: "Review Pending" },
-  { company_name: "Globex Corporation", category: "Logistics", risk_level: "Low", status: "Active" },
-];
+function displayValue(value: Json | null): string {
+  if (value === null) return "Not provided";
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "object") return Object.values(value).filter(Boolean).join(", ");
+  return String(value);
+}
 
 function initials(name: string) {
   return name.slice(0, 2).toUpperCase();
@@ -107,30 +73,81 @@ function DashboardPage() {
   const [dismissed, setDismissed] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
 
-  const { data: vendors, isLoading } = useQuery({
-    queryKey: ["vendors", "list"],
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["dashboard", "monitoring"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vendors")
-        .select("id, company_name, category, risk_level")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
+      const [vendorsResult, alertsResult, changesResult] = await Promise.all([
+        supabase
+          .from("vendors")
+          .select("id, company_name, category, risk_level, monitoring_status, created_at")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("vendor_monitoring_alerts")
+          .select("id, vendor_id, severity, status, attribute_checked, detected_at")
+          .neq("status", "resolved")
+          .order("detected_at", { ascending: false }),
+        supabase
+          .from("vendor_change_events")
+          .select(
+            "id, vendor_id, attribute_key, previous_value, new_value, severity, detected_at, snapshot_id",
+          )
+          .in("severity", ["critical", "attention"])
+          .order("detected_at", { ascending: false })
+          .limit(5),
+      ]);
+      if (vendorsResult.error) throw vendorsResult.error;
+      if (alertsResult.error) throw alertsResult.error;
+      if (changesResult.error) throw changesResult.error;
+      return {
+        vendors: vendorsResult.data,
+        alerts: alertsResult.data,
+        changes: changesResult.data,
+      };
     },
   });
 
-  const vendorCount = vendors?.length ?? 0;
+  const vendors = data?.vendors ?? [];
+  const alerts = data?.alerts ?? [];
+  const changes = data?.changes ?? [];
+  const summary = buildDashboardSummary(
+    vendors,
+    alerts.map((alert) => ({
+      ...alert,
+      severity:
+        alert.severity === "critical" || alert.severity === "info" ? alert.severity : "attention",
+    })),
+  );
   const showOnboarding =
-    manualOpen || (!isLoading && vendorCount === 0 && !dismissed);
-  const directory = vendorCount
-    ? vendors!.slice(0, 5).map((v) => ({
-        company_name: v.company_name,
-        category: v.category ?? "—",
-        risk_level: v.risk_level ?? "Low",
-        status: "Active",
-      }))
-    : sampleVendors;
-
+    manualOpen || (!isLoading && !isError && vendors.length === 0 && !dismissed);
+  const metricValue = (value: number) => (isLoading || isError ? "—" : String(value));
+  const healthData = (Object.keys(HEALTH_COLORS) as VendorHealth[]).map((health) => ({
+    name: VENDOR_HEALTH_LABELS[health],
+    value: summary.healthCounts[health],
+    color: HEALTH_COLORS[health],
+  }));
+  const vendorNames = new Map(vendors.map((vendor) => [vendor.id, vendor.company_name]));
+  const alertsByType = Object.entries(
+    alerts.reduce<Record<string, number>>((counts, alert) => {
+      const key = ATTRIBUTE_LABELS[alert.attribute_checked] ?? alert.attribute_checked;
+      counts[key] = (counts[key] ?? 0) + 1;
+      return counts;
+    }, {}),
+  ).map(([type, count]) => ({ type, count }));
+  const directory = vendors.slice(0, 5).map((vendor) => ({
+    ...vendor,
+    category: vendor.category ?? "—",
+    risk_level: vendor.risk_level ?? "—",
+    health: summary.healthByVendor.get(vendor.id) ?? "monitoring_issue",
+  }));
+  const actionable = alerts.slice(0, 5).map((alert) => ({
+    id: alert.id,
+    task: `Review ${ATTRIBUTE_LABELS[alert.attribute_checked] ?? alert.attribute_checked} change`,
+    vendor: vendorNames.get(alert.vendor_id) ?? "Unknown vendor",
+    priority: alert.severity === "critical" ? "High" : "Medium",
+    due: "Open",
+    overdue: false,
+    action: "Review",
+  }));
 
   return (
     <AppShell>
@@ -142,7 +159,12 @@ function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button onClick={() => { setDismissed(false); setManualOpen(true); }}>
+          <Button
+            onClick={() => {
+              setDismissed(false);
+              setManualOpen(true);
+            }}
+          >
             <Plus className="mr-2 h-4 w-4" /> Add Vendors
           </Button>
           <button
@@ -151,154 +173,204 @@ function DashboardPage() {
             className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground"
           >
             <Bell className="h-5 w-5" />
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-destructive" />
+            {!isLoading && summary.openAlerts > 0 && (
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-destructive" />
+            )}
           </button>
         </div>
       </div>
 
+      {isError && (
+        <div className="mt-6 rounded-xl border border-destructive/30 bg-error-container px-4 py-3 text-sm text-on-error-container">
+          Dashboard data could not be loaded.{" "}
+          {error instanceof Error ? error.message : "Try again."}
+        </div>
+      )}
+
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-        <MetricCard label="Total vendors" value={String(vendorCount || 142)} accent="var(--primary)" badge />
-        <MetricCard label="Healthy" value="118" accent="var(--success)" />
-        <MetricCard label="Attention" value="18" accent="var(--warning)" />
-        <MetricCard label="Critical" value="6" accent="var(--destructive)" valueClass="text-foreground" />
-        <MetricCard label="Open alerts" value="24" />
-        <MetricCard label="Overdue actions" value="3" valueClass="text-destructive" />
+        <MetricCard
+          label="Total vendors"
+          value={metricValue(summary.totalVendors)}
+          accent="var(--primary)"
+          badge
+        />
+        <MetricCard
+          label="Healthy"
+          value={metricValue(summary.healthCounts.healthy)}
+          accent="var(--success)"
+        />
+        <MetricCard
+          label="Attention Required"
+          value={metricValue(summary.healthCounts.attention_required)}
+          accent="var(--warning)"
+        />
+        <MetricCard
+          label="Critical"
+          value={metricValue(summary.healthCounts.critical)}
+          accent="var(--destructive)"
+          valueClass="text-foreground"
+        />
+        <MetricCard label="Open alerts" value={metricValue(summary.openAlerts)} />
+        <MetricCard label="Overdue actions" value="—" valueClass="text-muted-foreground" />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Panel title="Vendor Health Overview">
-          <div className="h-[260px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={healthData}
-                  dataKey="value"
-                  innerRadius={70}
-                  outerRadius={100}
-                  paddingAngle={1}
-                  stroke="none"
-                >
-                  {healthData.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-2 flex items-center justify-center gap-6 text-xs text-muted-foreground">
-            {healthData.map((d) => (
-              <span key={d.name} className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color }} />
-                {d.name}
-              </span>
-            ))}
-          </div>
+          {isLoading ? (
+            <PanelState>Loading vendor health…</PanelState>
+          ) : vendors.length === 0 ? (
+            <PanelState>No vendor health data yet.</PanelState>
+          ) : (
+            <>
+              <div className="h-[260px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={healthData}
+                      dataKey="value"
+                      innerRadius={70}
+                      outerRadius={100}
+                      paddingAngle={1}
+                      stroke="none"
+                    >
+                      {healthData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-2 flex items-center justify-center gap-6 text-xs text-muted-foreground">
+                {healthData.map((d) => (
+                  <span key={d.name} className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color }} />
+                    {d.name}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
         </Panel>
 
         <Panel title="Alerts by Type">
-          <div className="h-[290px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={alertsByType} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
-                <XAxis
-                  dataKey="type"
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-                />
-                <Bar dataKey="count" fill="var(--primary-container)" barSize={16} radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {isLoading ? (
+            <PanelState>Loading alerts…</PanelState>
+          ) : alertsByType.length === 0 ? (
+            <PanelState>No open alerts.</PanelState>
+          ) : (
+            <div className="h-[290px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={alertsByType} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
+                  <XAxis
+                    dataKey="type"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                  />
+                  <Bar
+                    dataKey="count"
+                    fill="var(--primary-container)"
+                    barSize={16}
+                    radius={[2, 2, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </Panel>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Panel title="Upcoming Reviews & Expiries" action="View All">
-          <div className="space-y-3">
-            {upcoming.map((u) => (
-              <div
-                key={u.name}
-                className="flex items-center gap-3 rounded-xl bg-surface-container-low px-3 py-3"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-xs font-bold text-primary">
-                  {u.initials}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">{u.name}</p>
-                  <p className="text-xs text-muted-foreground">{u.detail}</p>
-                </div>
-                <span
-                  className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
-                    u.tone === "critical"
-                      ? "bg-error-container text-on-error-container"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  {u.due}
-                </span>
-              </div>
-            ))}
-          </div>
+          <PanelState>No upcoming reviews or expiries.</PanelState>
         </Panel>
 
         <Panel title="Recent Material Changes" action="View All">
-          <div className="space-y-5">
-            {materialChanges.map(({ icon: Icon, ...c }) => (
-              <div key={c.vendor} className="flex gap-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-error-container text-on-error-container">
-                  <Icon className="h-4 w-4" />
-                </span>
-                <div>
-                  <p className="text-sm text-foreground">
-                    <span className="font-semibold">{c.vendor}</span>{" "}
-                    <span className="text-muted-foreground">{c.headline}</span>
-                  </p>
-                  <p className="text-sm text-muted-foreground">{c.detail}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{c.time}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          {isLoading ? (
+            <PanelState>Loading recent changes…</PanelState>
+          ) : changes.length === 0 ? (
+            <PanelState>No material changes detected.</PanelState>
+          ) : (
+            <div className="space-y-5">
+              {changes.map((change) => {
+                const Icon = change.severity === "critical" ? TrendingDown : UserCog;
+                return (
+                  <div key={change.id} className="flex gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-error-container text-on-error-container">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="text-sm text-foreground">
+                        <span className="font-semibold">
+                          {vendorNames.get(change.vendor_id) ?? "Unknown vendor"}
+                        </span>{" "}
+                        <span className="text-muted-foreground">
+                          {ATTRIBUTE_LABELS[change.attribute_key] ?? change.attribute_key} changed
+                        </span>
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {displayValue(change.previous_value)} → {displayValue(change.new_value)}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(change.detected_at), { addSuffix: true })}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </Panel>
       </div>
 
       <div className="mt-6">
         <Panel title="Actions Requiring Attention" action="View All Tasks">
-          <table className="w-full text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="pb-3 font-medium">Task</th>
-                <th className="pb-3 font-medium">Vendor</th>
-                <th className="pb-3 font-medium">Priority</th>
-                <th className="pb-3 font-medium">Due date</th>
-                <th className="pb-3 text-right font-medium">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tasks.map((t) => (
-                <tr key={t.task} className="border-t border-border">
-                  <td className="py-4 text-foreground">{t.task}</td>
-                  <td className="py-4 font-semibold text-foreground">{t.vendor}</td>
-                  <td className="py-4">
-                    <PriorityChip priority={t.priority} />
-                  </td>
-                  <td className={`py-4 ${t.overdue ? "font-semibold text-destructive" : "text-muted-foreground"}`}>
-                    {t.due}
-                  </td>
-                  <td className="py-4 text-right">
-                    <button type="button" className="text-sm font-semibold text-primary hover:underline">
-                      {t.action}
-                    </button>
-                  </td>
+          {isLoading ? (
+            <PanelState>Loading open alerts…</PanelState>
+          ) : actionable.length === 0 ? (
+            <PanelState>No actions require attention.</PanelState>
+          ) : (
+            <table className="w-full text-left text-sm">
+              <thead className="text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="pb-3 font-medium">Task</th>
+                  <th className="pb-3 font-medium">Vendor</th>
+                  <th className="pb-3 font-medium">Priority</th>
+                  <th className="pb-3 font-medium">Due date</th>
+                  <th className="pb-3 text-right font-medium">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {actionable.map((t) => (
+                  <tr key={t.id} className="border-t border-border">
+                    <td className="py-4 text-foreground">{t.task}</td>
+                    <td className="py-4 font-semibold text-foreground">{t.vendor}</td>
+                    <td className="py-4">
+                      <PriorityChip priority={t.priority} />
+                    </td>
+                    <td
+                      className={`py-4 ${t.overdue ? "font-semibold text-destructive" : "text-muted-foreground"}`}
+                    >
+                      {t.due}
+                    </td>
+                    <td className="py-4 text-right">
+                      <button
+                        type="button"
+                        className="text-sm font-semibold text-primary hover:underline"
+                      >
+                        {t.action}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </Panel>
       </div>
 
@@ -321,39 +393,45 @@ function DashboardPage() {
             </div>
           </div>
 
-          <table className="mt-5 w-full text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="pb-3 font-medium">Vendor name</th>
-                <th className="pb-3 font-medium">Category</th>
-                <th className="pb-3 font-medium">Risk level</th>
-                <th className="pb-3 font-medium">Status</th>
-                <th className="pb-3 text-right font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {directory.map((v) => (
-                <tr key={v.company_name} className="border-t border-border">
-                  <td className="py-4">
-                    <span className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-[11px] font-bold text-primary">
-                        {initials(v.company_name)}
-                      </span>
-                      <span className="font-semibold text-foreground">{v.company_name}</span>
-                    </span>
-                  </td>
-                  <td className="py-4 text-muted-foreground">{v.category}</td>
-                  <td className="py-4">
-                    <RiskChip risk={v.risk_level} />
-                  </td>
-                  <td className="py-4 text-muted-foreground">{v.status}</td>
-                  <td className="py-4 text-right">
-                    <MoreVertical className="ml-auto h-4 w-4 text-muted-foreground" />
-                  </td>
+          {isLoading ? (
+            <PanelState>Loading vendors…</PanelState>
+          ) : directory.length === 0 ? (
+            <PanelState>No vendors yet. Add your first vendor to begin monitoring.</PanelState>
+          ) : (
+            <table className="mt-5 w-full text-left text-sm">
+              <thead className="text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="pb-3 font-medium">Vendor name</th>
+                  <th className="pb-3 font-medium">Category</th>
+                  <th className="pb-3 font-medium">Risk level</th>
+                  <th className="pb-3 font-medium">Status</th>
+                  <th className="pb-3 text-right font-medium">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {directory.map((v) => (
+                  <tr key={v.id} className="border-t border-border">
+                    <td className="py-4">
+                      <span className="flex items-center gap-3">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-[11px] font-bold text-primary">
+                          {initials(v.company_name)}
+                        </span>
+                        <span className="font-semibold text-foreground">{v.company_name}</span>
+                      </span>
+                    </td>
+                    <td className="py-4 text-muted-foreground">{v.category}</td>
+                    <td className="py-4">
+                      <RiskChip risk={v.risk_level} />
+                    </td>
+                    <td className="py-4 text-muted-foreground">{VENDOR_HEALTH_LABELS[v.health]}</td>
+                    <td className="py-4 text-right">
+                      <MoreVertical className="ml-auto h-4 w-4 text-muted-foreground" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
 
           <div className="mt-4 text-center">
             <Link to="/vendors" className="text-sm font-semibold text-primary hover:underline">
@@ -396,7 +474,9 @@ function MetricCard({
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           {label}
         </p>
-        <p className={`mt-2 flex items-center gap-2 text-3xl font-bold ${valueClass ?? "text-foreground"}`}>
+        <p
+          className={`mt-2 flex items-center gap-2 text-3xl font-bold ${valueClass ?? "text-foreground"}`}
+        >
           {value}
           {badge && <ShieldCheck className="h-4 w-4 text-primary" />}
         </p>
@@ -429,6 +509,14 @@ function Panel({
   );
 }
 
+function PanelState({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-32 items-center justify-center rounded-xl bg-surface-container-low px-4 text-center text-sm text-muted-foreground">
+      {children}
+    </div>
+  );
+}
+
 function PriorityChip({ priority }: { priority: string }) {
   const tone =
     priority === "High"
@@ -448,7 +536,9 @@ function RiskChip({ risk }: { risk: string }) {
         ? "bg-warning-container text-foreground"
         : "bg-success-container text-success";
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${tone}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${tone}`}
+    >
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
       {risk}
     </span>

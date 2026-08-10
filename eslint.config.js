@@ -6,7 +6,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi"] },
+  { ignores: ["dist", ".output", ".vinxi", ".claude"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -37,4 +37,9 @@ export default tseslint.config(
     },
   },
   eslintPluginPrettier,
+  {
+    // Formatting is checked with Prettier directly; ESLint remains focused
+    // on correctness and React/TypeScript rules.
+    rules: { "prettier/prettier": "off" },
+  },
 );

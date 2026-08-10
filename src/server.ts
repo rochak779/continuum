@@ -44,9 +44,30 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+async function handleScheduledMonitoring(request: Request, env: unknown): Promise<Response | null> {
+  const url = new URL(request.url);
+  if (url.pathname !== "/api/monitoring/companies-house") return null;
+  if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+
+  const environment = env && typeof env === "object" ? (env as Record<string, unknown>) : {};
+  const expected =
+    (typeof environment["MONITORING_SCHEDULER_SECRET"] === "string"
+      ? environment["MONITORING_SCHEDULER_SECRET"]
+      : undefined) ?? process.env["MONITORING_SCHEDULER_SECRET"];
+  if (!expected || request.headers.get("x-monitoring-secret") !== expected) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { runScheduledCompaniesHouseMonitoring } =
+    await import("./integrations/companies-house/scheduler.server");
+  return Response.json(await runScheduledCompaniesHouseMonitoring());
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const monitoringResponse = await handleScheduledMonitoring(request, env);
+      if (monitoringResponse) return monitoringResponse;
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
