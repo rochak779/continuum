@@ -1,8 +1,10 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Plus } from "lucide-react";
 
 import { AppShell } from "@/components/app/AppShell";
+import { AddVendorModal } from "@/components/app/AddVendorModal";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
@@ -24,7 +26,7 @@ export const Route = createFileRoute("/_authenticated/vendors/")({
 });
 
 function VendorsPage() {
-  const navigate = useNavigate();
+  const [addOpen, setAddOpen] = useState(false);
   const { data: vendors, isLoading } = useQuery({
     queryKey: ["vendors", "list"],
     queryFn: async () => {
@@ -41,14 +43,9 @@ function VendorsPage() {
     <AppShell>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-4xl font-bold tracking-tight text-foreground">Vendors</h1>
-        <div className="flex gap-3">
-          <Button variant="outline" asChild>
-            <Link to="/vendors/upload">Upload file</Link>
-          </Button>
-          <Button onClick={() => navigate({ to: "/vendors/new" })}>
-            <Plus className="mr-2 h-4 w-4" /> Add Vendor
-          </Button>
-        </div>
+        <Button onClick={() => setAddOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" /> Add Vendor
+        </Button>
       </div>
 
       <div className="mt-8 overflow-hidden rounded-2xl border border-border bg-card shadow-card">
@@ -81,6 +78,8 @@ function VendorsPage() {
           </table>
         )}
       </div>
+
+      <AddVendorModal isOpen={addOpen} onClose={() => setAddOpen(false)} hideUpload />
     </AppShell>
   );
 }
