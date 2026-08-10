@@ -15,6 +15,8 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedVendorsIndexRouteImport } from './routes/_authenticated/vendors/index'
+import { Route as AuthenticatedVendorsNewRouteImport } from './routes/_authenticated/vendors/new'
+import { Route as AuthenticatedVendorsReviewRouteImport } from './routes/_authenticated/vendors/review'
 import { Route as AuthenticatedVendorsUploadRouteImport } from './routes/_authenticated/vendors/upload'
 
 const IndexRoute = IndexRouteImport.update({
@@ -47,6 +49,17 @@ const AuthenticatedVendorsIndexRoute =
     path: '/vendors/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedVendorsNewRoute = AuthenticatedVendorsNewRouteImport.update({
+  id: '/vendors/new',
+  path: '/vendors/new',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedVendorsReviewRoute =
+  AuthenticatedVendorsReviewRouteImport.update({
+    id: '/vendors/review',
+    path: '/vendors/review',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedVendorsUploadRoute =
   AuthenticatedVendorsUploadRouteImport.update({
     id: '/vendors/upload',
@@ -59,6 +72,8 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/signup': typeof SignupRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/vendors/new': typeof AuthenticatedVendorsNewRoute
+  '/vendors/review': typeof AuthenticatedVendorsReviewRoute
   '/vendors/upload': typeof AuthenticatedVendorsUploadRoute
   '/vendors/': typeof AuthenticatedVendorsIndexRoute
 }
@@ -67,6 +82,8 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/signup': typeof SignupRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/vendors/new': typeof AuthenticatedVendorsNewRoute
+  '/vendors/review': typeof AuthenticatedVendorsReviewRoute
   '/vendors/upload': typeof AuthenticatedVendorsUploadRoute
   '/vendors': typeof AuthenticatedVendorsIndexRoute
 }
@@ -77,15 +94,32 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/signup': typeof SignupRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/vendors/new': typeof AuthenticatedVendorsNewRoute
+  '/_authenticated/vendors/review': typeof AuthenticatedVendorsReviewRoute
   '/_authenticated/vendors/upload': typeof AuthenticatedVendorsUploadRoute
   '/_authenticated/vendors/': typeof AuthenticatedVendorsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/auth' | '/signup' | '/dashboard' | '/vendors/upload' | '/vendors/'
+    | '/'
+    | '/auth'
+    | '/signup'
+    | '/dashboard'
+    | '/vendors/new'
+    | '/vendors/review'
+    | '/vendors/upload'
+    | '/vendors/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/signup' | '/dashboard' | '/vendors/upload' | '/vendors'
+  to:
+    | '/'
+    | '/auth'
+    | '/signup'
+    | '/dashboard'
+    | '/vendors/new'
+    | '/vendors/review'
+    | '/vendors/upload'
+    | '/vendors'
   id:
     | '__root__'
     | '/'
@@ -93,6 +127,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/signup'
     | '/_authenticated/dashboard'
+    | '/_authenticated/vendors/new'
+    | '/_authenticated/vendors/review'
     | '/_authenticated/vendors/upload'
     | '/_authenticated/vendors/'
   fileRoutesById: FileRoutesById
@@ -148,6 +184,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVendorsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/vendors/new': {
+      id: '/_authenticated/vendors/new'
+      path: '/vendors/new'
+      fullPath: '/vendors/new'
+      preLoaderRoute: typeof AuthenticatedVendorsNewRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/vendors/review': {
+      id: '/_authenticated/vendors/review'
+      path: '/vendors/review'
+      fullPath: '/vendors/review'
+      preLoaderRoute: typeof AuthenticatedVendorsReviewRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/vendors/upload': {
       id: '/_authenticated/vendors/upload'
       path: '/vendors/upload'
@@ -160,12 +210,16 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedVendorsNewRoute: typeof AuthenticatedVendorsNewRoute
+  AuthenticatedVendorsReviewRoute: typeof AuthenticatedVendorsReviewRoute
   AuthenticatedVendorsUploadRoute: typeof AuthenticatedVendorsUploadRoute
   AuthenticatedVendorsIndexRoute: typeof AuthenticatedVendorsIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedVendorsNewRoute: AuthenticatedVendorsNewRoute,
+  AuthenticatedVendorsReviewRoute: AuthenticatedVendorsReviewRoute,
   AuthenticatedVendorsUploadRoute: AuthenticatedVendorsUploadRoute,
   AuthenticatedVendorsIndexRoute: AuthenticatedVendorsIndexRoute,
 }
