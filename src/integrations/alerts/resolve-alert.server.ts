@@ -19,13 +19,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type {
-  AlertRecord,
-  AlertResolutionStore,
-  ChangeEventRecord,
-  ResolutionActor,
-  ResolutionType,
-} from "./types";
+import { createSupabaseAuditEventWriter } from "../audit/record-audit-event.server";
+import type { AlertRecord, AlertResolutionStore, ChangeEventRecord, ResolutionType } from "./types";
 
 // Untyped on purpose — see file header.
 type AdminClient = SupabaseClient;
@@ -47,11 +42,9 @@ interface ChangeEventRow {
   status: "open" | "resolved";
 }
 
-function actorTypeToAuditActorType(actor: ResolutionActor): string {
-  return actor.type;
-}
-
 export function createSupabaseAlertResolutionStore(db: AdminClient): AlertResolutionStore {
+  const auditWriter = createSupabaseAuditEventWriter(db);
+
   return {
     async getAlert(alertId: string): Promise<AlertRecord | null> {
       const { data, error } = await db
@@ -149,25 +142,16 @@ export function createSupabaseAlertResolutionStore(db: AdminClient): AlertResolu
       if (error) throw error;
     },
 
-    async recordAuditEvent(input: {
-      organisationId: string;
-      vendorId: string;
-      actor: ResolutionActor;
-      eventType: string;
-      entityId: string;
-      metadata: Record<string, unknown>;
-    }): Promise<void> {
-      const { error } = await db.from("audit_events").insert({
-        organisation_id: input.organisationId,
-        vendor_id: input.vendorId,
-        actor_type: actorTypeToAuditActorType(input.actor),
-        actor_id: input.actor.id,
-        event_type: input.eventType,
-        entity_type: "alert",
-        entity_id: input.entityId,
-        metadata: input.metadata as never,
-      } as never);
-      if (error) throw error;
+    async recordAuditEvent(input): Promise<void> {
+      await auditWriter.record({
+        organisationId: input.organisationId,
+        vendorId: input.vendorId,
+        actor: input.actor,
+        eventType: input.eventType,
+        entityType: input.entityType,
+        entityId: input.entityId,
+        metadata: input.metadata,
+      });
     },
   };
 }

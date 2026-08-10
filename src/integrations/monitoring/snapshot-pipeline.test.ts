@@ -21,7 +21,8 @@ function createFakeStore(overrides: Partial<MonitoringRunStore> = {}) {
     startRun: unknown[];
     insertSnapshot: unknown[];
     completeRun: unknown[];
-  } = { startRun: [], insertSnapshot: [], completeRun: [] };
+    recordAuditEvent: unknown[];
+  } = { startRun: [], insertSnapshot: [], completeRun: [], recordAuditEvent: [] };
 
   let runCounter = 0;
   let snapshotCounter = 0;
@@ -41,13 +42,19 @@ function createFakeStore(overrides: Partial<MonitoringRunStore> = {}) {
       calls.completeRun.push(input);
       if (overrides.completeRun) return overrides.completeRun(input);
     },
+    async recordAuditEvent(input): Promise<void> {
+      calls.recordAuditEvent.push(input);
+      if (overrides.recordAuditEvent) return overrides.recordAuditEvent(input);
+    },
   };
 
   return { store, calls };
 }
 
+const BASE_INPUT = { organisationId: "org-1", vendorId: "vendor-1" };
+
 describe("runSnapshotPipeline", () => {
-  it("on success: starts a run, inserts a snapshot, and completes the run as success", async () => {
+  it("on success: starts a run, inserts a snapshot, completes the run as success, and audits monitoring_started only", async () => {
     const fixedNow = new Date("2026-01-01T00:00:00.000Z");
     const provider = createMockProvider({
       metadata: { providerId: "mock_provider", requiredIdentifierType: "MOCK_ID" },
@@ -57,7 +64,7 @@ describe("runSnapshotPipeline", () => {
     const { store, calls } = createFakeStore();
 
     const outcome = await runSnapshotPipeline(store, {
-      vendorId: "vendor-1",
+      ...BASE_INPUT,
       provider,
       identifierValue: "12345678",
       triggerType: "manual",
@@ -76,9 +83,20 @@ describe("runSnapshotPipeline", () => {
     expect(calls.completeRun).toEqual([
       { runId: "run-1", status: "success", snapshotId: "snapshot-1" },
     ]);
+
+    // A non-baseline successful run only ever audits the attempt starting —
+    // baseline_created is reserved for triggerType === "initial_baseline".
+    expect(calls.recordAuditEvent).toHaveLength(1);
+    expect(calls.recordAuditEvent[0]).toMatchObject({
+      organisationId: "org-1",
+      vendorId: "vendor-1",
+      eventType: "monitoring_started",
+      entityType: "monitoring_run",
+      entityId: "run-1",
+    });
   });
 
-  it("on provider failure: completes the run as failed, never inserts a snapshot, and never writes vendor data", async () => {
+  it("on provider failure: completes the run as failed, never inserts a snapshot, and audits monitoring_started then monitoring_failed", async () => {
     const provider = createMockProvider({
       responses: {
         "12345678": {
@@ -92,7 +110,7 @@ describe("runSnapshotPipeline", () => {
     const { store, calls } = createFakeStore();
 
     const outcome = await runSnapshotPipeline(store, {
-      vendorId: "vendor-1",
+      ...BASE_INPUT,
       provider,
       identifierValue: "12345678",
       triggerType: "scheduled",
@@ -125,16 +143,34 @@ describe("runSnapshotPipeline", () => {
     // none of them is a vendor write. This is the structural guarantee that
     // a provider failure cannot change vendor health.
     const observedMethods = Object.keys(calls);
-    expect(observedMethods).toEqual(["startRun", "insertSnapshot", "completeRun"]);
+    expect(observedMethods).toEqual([
+      "startRun",
+      "insertSnapshot",
+      "completeRun",
+      "recordAuditEvent",
+    ]);
+
+    // Audited exactly twice: the attempt starting, then the failure — never
+    // a baseline_created, no matter what triggerType was.
+    expect(calls.recordAuditEvent).toHaveLength(2);
+    expect(calls.recordAuditEvent[0]).toMatchObject({ eventType: "monitoring_started" });
+    expect(calls.recordAuditEvent[1]).toMatchObject({
+      organisationId: "org-1",
+      vendorId: "vendor-1",
+      eventType: "monitoring_failed",
+      entityType: "monitoring_run",
+      entityId: "run-1",
+      metadata: expect.objectContaining({ errorType: "provider_unavailable" }),
+    });
   });
 
-  it("on invalid identifier: still records a failed monitoring run without calling the provider's fetch", async () => {
+  it("on invalid identifier: still records a failed monitoring run and a monitoring_failed audit event, without calling the provider's fetch", async () => {
     const provider = createMockProvider({ invalidIdentifiers: ["BAD"] });
     const fetchSpy = vi.spyOn(provider, "fetch");
     const { store, calls } = createFakeStore();
 
     const outcome = await runSnapshotPipeline(store, {
-      vendorId: "vendor-1",
+      ...BASE_INPUT,
       provider,
       identifierValue: "BAD",
       triggerType: "manual",
@@ -145,9 +181,13 @@ describe("runSnapshotPipeline", () => {
     expect(outcome.error.type).toBe("validation_error");
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(calls.insertSnapshot).toHaveLength(0);
+    expect(calls.recordAuditEvent.map((c) => (c as { eventType: string }).eventType)).toEqual([
+      "monitoring_started",
+      "monitoring_failed",
+    ]);
   });
 
-  it("skips (without calling the provider) when a run is already in progress for this vendor/provider", async () => {
+  it("skips (without calling the provider or writing any audit event) when a run is already in progress for this vendor/provider", async () => {
     const provider = createMockProvider({ responses: { "12345678": { status: "active" } } });
     const fetchSpy = vi.spyOn(provider, "fetch");
     const { store, calls } = createFakeStore({
@@ -157,7 +197,7 @@ describe("runSnapshotPipeline", () => {
     });
 
     const outcome = await runSnapshotPipeline(store, {
-      vendorId: "vendor-1",
+      ...BASE_INPUT,
       provider,
       identifierValue: "12345678",
       triggerType: "scheduled",
@@ -167,6 +207,7 @@ describe("runSnapshotPipeline", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(calls.insertSnapshot).toHaveLength(0);
     expect(calls.completeRun).toHaveLength(0);
+    expect(calls.recordAuditEvent).toHaveLength(0);
   });
 
   it("propagates an unexpected store error from startRun instead of swallowing it", async () => {
@@ -179,7 +220,7 @@ describe("runSnapshotPipeline", () => {
 
     await expect(
       runSnapshotPipeline(store, {
-        vendorId: "vendor-1",
+        ...BASE_INPUT,
         provider,
         identifierValue: "12345678",
         triggerType: "manual",
@@ -204,7 +245,7 @@ describe("runSnapshotPipeline", () => {
     });
 
     await runSnapshotPipeline(store, {
-      vendorId: "vendor-1",
+      ...BASE_INPUT,
       provider,
       identifierValue: "00000006",
       triggerType: "initial_baseline",
@@ -217,6 +258,110 @@ describe("runSnapshotPipeline", () => {
       normalizedData: { companyStatus: "active" },
       rawData: { company_status: "active" },
       providerReference: null,
+    });
+  });
+
+  describe("audit trail (ERD §13)", () => {
+    it("audits baseline_created (in addition to monitoring_started) when triggerType is initial_baseline and the fetch succeeds", async () => {
+      const provider = createMockProvider({
+        responses: { "12345678": { status: "active" } },
+      });
+      const { store, calls } = createFakeStore();
+
+      await runSnapshotPipeline(store, {
+        ...BASE_INPUT,
+        provider,
+        identifierValue: "12345678",
+        triggerType: "initial_baseline",
+      });
+
+      const eventTypes = calls.recordAuditEvent.map((c) => (c as { eventType: string }).eventType);
+      expect(eventTypes).toEqual(["monitoring_started", "baseline_created"]);
+
+      const baselineEvent = calls.recordAuditEvent[1] as {
+        entityType: string;
+        entityId: string;
+        organisationId: string;
+        vendorId: string;
+      };
+      expect(baselineEvent.entityType).toBe("external_snapshots");
+      expect(baselineEvent.entityId).toBe("snapshot-1");
+      expect(baselineEvent.organisationId).toBe("org-1");
+      expect(baselineEvent.vendorId).toBe("vendor-1");
+    });
+
+    it("does NOT audit baseline_created for a successful non-baseline run (manual/scheduled/retry)", async () => {
+      for (const triggerType of ["manual", "scheduled", "retry"] as const) {
+        const provider = createMockProvider({ responses: { "12345678": { status: "active" } } });
+        const { store, calls } = createFakeStore();
+
+        await runSnapshotPipeline(store, {
+          ...BASE_INPUT,
+          provider,
+          identifierValue: "12345678",
+          triggerType,
+        });
+
+        const eventTypes = calls.recordAuditEvent.map(
+          (c) => (c as { eventType: string }).eventType,
+        );
+        expect(eventTypes).toEqual(["monitoring_started"]);
+      }
+    });
+
+    it("does NOT audit baseline_created for a FAILED initial_baseline run", async () => {
+      const provider = createMockProvider({ invalidIdentifiers: ["BAD"] });
+      const { store, calls } = createFakeStore();
+
+      await runSnapshotPipeline(store, {
+        ...BASE_INPUT,
+        provider,
+        identifierValue: "BAD",
+        triggerType: "initial_baseline",
+      });
+
+      const eventTypes = calls.recordAuditEvent.map((c) => (c as { eventType: string }).eventType);
+      expect(eventTypes).toEqual(["monitoring_started", "monitoring_failed"]);
+    });
+
+    it("defaults the audit actor to a system actor when none is supplied", async () => {
+      const provider = createMockProvider({ responses: { "12345678": { status: "active" } } });
+      const { store, calls } = createFakeStore();
+
+      await runSnapshotPipeline(store, {
+        ...BASE_INPUT,
+        provider,
+        identifierValue: "12345678",
+        triggerType: "manual",
+      });
+
+      expect(calls.recordAuditEvent[0]).toMatchObject({ actor: { id: null, type: "system" } });
+    });
+
+    it("threads a supplied actor through to every audit event the run produces", async () => {
+      const provider = createMockProvider({
+        responses: {
+          "12345678": {
+            type: "provider_unavailable",
+            message: "down",
+            retryable: true,
+          },
+        },
+      });
+      const { store, calls } = createFakeStore();
+      const actor = { id: "user-9", type: "user" as const };
+
+      await runSnapshotPipeline(store, {
+        ...BASE_INPUT,
+        provider,
+        identifierValue: "12345678",
+        triggerType: "manual",
+        actor,
+      });
+
+      for (const call of calls.recordAuditEvent) {
+        expect((call as { actor: unknown }).actor).toEqual(actor);
+      }
     });
   });
 });

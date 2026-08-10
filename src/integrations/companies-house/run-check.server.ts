@@ -10,6 +10,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { AuditActor } from "../audit/types";
 import { createCompaniesHouseProvider } from "./provider.server";
 import { createSupabaseMonitoringRunStore } from "../monitoring/snapshot-pipeline.server";
 import {
@@ -24,10 +25,15 @@ const COMPANIES_HOUSE_IDENTIFIER_TYPE = "COMPANIES_HOUSE_NUMBER";
 // type yet — see snapshot-pipeline.server.ts's file header.
 type AdminClient = SupabaseClient;
 
-export type RunVendorCheckOutcome = SnapshotPipelineOutcome | { status: "no_identifier" };
+export type RunVendorCheckOutcome =
+  SnapshotPipelineOutcome | { status: "no_identifier" } | { status: "vendor_not_found" };
 
 interface VendorIdentifierRow {
   identifier_value: string;
+}
+
+interface VendorRow {
+  organisation_id: string;
 }
 
 /**
@@ -53,22 +59,42 @@ async function getCompaniesHouseIdentifier(
   return (data as VendorIdentifierRow | null)?.identifier_value ?? null;
 }
 
+/** audit_events.organisation_id must be supplied directly by the writer (it isn't derived by a DB trigger the way monitoring_runs/external_snapshots' is), so it's looked up here once per check. */
+async function getVendorOrganisationId(db: AdminClient, vendorId: string): Promise<string | null> {
+  const { data, error } = await db
+    .from("vendors")
+    .select("organisation_id")
+    .eq("id", vendorId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as VendorRow | null)?.organisation_id ?? null;
+}
+
 export interface RunVendorCheckOptions {
   triggerType?: TriggerType | undefined;
+  /** Defaults to a system actor (see ../monitoring/snapshot-pipeline.ts). */
+  actor?: AuditActor | undefined;
 }
 
 /**
  * Run one Companies House check for a vendor, end to end: look up its
  * Companies House number, fetch + normalize via the provider, and persist
- * an external_snapshots + monitoring_runs row through the shared pipeline.
- * A provider failure yields a `status: "failed"` monitoring run; vendor
- * rows are never touched by this function (see ../monitoring/snapshot-pipeline).
+ * an external_snapshots + monitoring_runs row (plus the ERD §13 audit trail)
+ * through the shared pipeline. A provider failure yields a `status: "failed"`
+ * monitoring run; vendor rows are never touched by this function (see
+ * ../monitoring/snapshot-pipeline).
  */
 export async function runVendorCompaniesHouseCheck(
   vendorId: string,
   options: RunVendorCheckOptions = {},
 ): Promise<RunVendorCheckOutcome> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  const organisationId = await getVendorOrganisationId(supabaseAdmin, vendorId);
+  if (!organisationId) {
+    return { status: "vendor_not_found" };
+  }
 
   const identifierValue = await getCompaniesHouseIdentifier(supabaseAdmin, vendorId);
   if (!identifierValue) {
@@ -79,9 +105,11 @@ export async function runVendorCompaniesHouseCheck(
   const provider = createCompaniesHouseProvider();
 
   return runSnapshotPipeline(store, {
+    organisationId,
     vendorId,
     provider,
     identifierValue,
     triggerType: options.triggerType ?? "manual",
+    actor: options.actor,
   });
 }

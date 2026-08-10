@@ -117,22 +117,36 @@ describe("resolveAlert — verified_accepted", () => {
     ]);
     expect(calls.resolveChangeEvent).toEqual(["change-1"]);
 
-    expect(calls.recordAuditEvent).toHaveLength(1);
+    // verified_accepted writes two audit events: alert_resolved (every
+    // resolution type) and trust_profile_updated (this branch only).
+    expect(calls.recordAuditEvent).toHaveLength(2);
     const audit = calls.recordAuditEvent[0] as {
       organisationId: string;
       vendorId: string;
       actor: { id: string; type: string };
       eventType: string;
+      entityType: string;
       entityId: string;
       metadata: Record<string, unknown>;
     };
     expect(audit.organisationId).toBe("org-1");
     expect(audit.vendorId).toBe("vendor-1");
     expect(audit.actor).toEqual({ id: "user-1", type: "user" });
-    expect(audit.eventType).toBe("alert.resolved.verified_accepted");
+    expect(audit.eventType).toBe("alert_resolved");
+    expect(audit.entityType).toBe("alert");
     expect(audit.entityId).toBe("alert-1");
     expect(audit.metadata["reason"]).toBe("Confirmed with Companies House filing history.");
     expect(audit.metadata["changeEventId"]).toBe("change-1");
+
+    const trustProfileAudit = calls.recordAuditEvent[1] as {
+      eventType: string;
+      entityType: string;
+      metadata: Record<string, unknown>;
+    };
+    expect(trustProfileAudit.eventType).toBe("trust_profile_updated");
+    expect(trustProfileAudit.entityType).toBe("trust_profile_attribute");
+    expect(trustProfileAudit.metadata["attributeKey"]).toBe("company_status");
+    expect(trustProfileAudit.metadata["newValue"]).toBe("dissolved");
   });
 
   it("records actor, timestamp, and reason on the resolved alert", async () => {
@@ -174,10 +188,10 @@ describe("resolveAlert — false_positive", () => {
       }),
     ]);
     expect(calls.resolveChangeEvent).toEqual(["change-1"]);
+    // Only alert_resolved — never trust_profile_updated, since this branch
+    // never calls upsertTrustProfileAttribute.
     expect(calls.recordAuditEvent).toHaveLength(1);
-    expect((calls.recordAuditEvent[0] as { eventType: string }).eventType).toBe(
-      "alert.resolved.false_positive",
-    );
+    expect((calls.recordAuditEvent[0] as { eventType: string }).eventType).toBe("alert_resolved");
   });
 
   it("does not change the baseline even when the underlying change looks material", async () => {
@@ -220,6 +234,10 @@ describe("resolveAlert — risk_accepted", () => {
     // The detected change itself is preserved (only status flips, values untouched)
     // — resolveChangeEvent only ever receives the id, never a value patch.
     expect(calls.resolveChangeEvent).toEqual(["change-1"]);
+
+    // Only alert_resolved — never trust_profile_updated.
+    expect(calls.recordAuditEvent).toHaveLength(1);
+    expect((calls.recordAuditEvent[0] as { eventType: string }).eventType).toBe("alert_resolved");
   });
 
   it("defaults ownerId to the acting user when none is given", async () => {
@@ -338,7 +356,10 @@ describe("resolveAlert — not found / idempotency", () => {
 
     expect(first.status).toBe("resolved");
     expect(second).toEqual({ status: "already_resolved", alertId: "alert-1" });
-    expect(calls.recordAuditEvent).toHaveLength(1);
+    // verified_accepted (the default in baseInput()) writes two audit
+    // events — alert_resolved + trust_profile_updated — but only once, not
+    // once per resolve() call.
+    expect(calls.recordAuditEvent).toHaveLength(2);
     expect(calls.resolveAlert).toHaveLength(1);
   });
 });

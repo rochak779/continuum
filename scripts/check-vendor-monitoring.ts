@@ -84,11 +84,22 @@ const { createSupabaseMonitoringRunStore } =
 const store = createSupabaseMonitoringRunStore(supabaseAdmin);
 
 // vendorId is guaranteed set above when persist is true.
+const { data: vendorRow, error: vendorError } = await supabaseAdmin
+  .from("vendors")
+  .select("organisation_id")
+  .eq("id", vendorId as string)
+  .maybeSingle();
+if (vendorError) fail(`Failed to look up vendor ${vendorId}: ${vendorError.message}`);
+if (!vendorRow) fail(`Vendor ${vendorId} does not exist.`);
+const organisationId = (vendorRow as { organisation_id: string }).organisation_id;
+
 const outcome = await runSnapshotPipeline(store, {
+  organisationId,
   vendorId: vendorId as string,
   provider,
   identifierValue: companyNumber,
   triggerType: "manual",
+  actor: { id: null, type: "system" },
 });
 
 if (outcome.status === "skipped") {

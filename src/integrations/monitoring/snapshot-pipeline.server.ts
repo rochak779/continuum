@@ -12,6 +12,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { createSupabaseAuditEventWriter } from "../audit/record-audit-event.server";
 import {
   RunAlreadyInProgressError,
   type InsertedRun,
@@ -38,6 +39,8 @@ interface ExternalSnapshotRow {
 }
 
 export function createSupabaseMonitoringRunStore(db: AdminClient): MonitoringRunStore {
+  const auditWriter = createSupabaseAuditEventWriter(db);
+
   return {
     async startRun(input: {
       vendorId: string;
@@ -113,6 +116,18 @@ export function createSupabaseMonitoringRunStore(db: AdminClient): MonitoringRun
         .eq("id", input.runId);
 
       if (error) throw error;
+    },
+
+    async recordAuditEvent(input): Promise<void> {
+      await auditWriter.record({
+        organisationId: input.organisationId,
+        vendorId: input.vendorId,
+        actor: input.actor,
+        eventType: input.eventType,
+        entityType: input.entityType,
+        entityId: input.entityId,
+        metadata: input.metadata,
+      });
     },
   };
 }

@@ -19,21 +19,20 @@
 //   5. Resolve the alert (status -> 'resolved', resolution_type, reason,
 //      resolved_by, resolved_at [+ assigned_to/resolution_expiry for
 //      risk_accepted]) and the change event (status -> 'resolved').
-//   6. Write an audit event (actor, timestamp, reason) — every path, no
-//      exceptions.
+//   6. Write the ERD §13 audit trail (actor, timestamp, reason) — every
+//      path, no exceptions: an `alert_resolved` event always, plus a
+//      `trust_profile_updated` event on the verified_accepted branch only
+//      (mirroring step 4 — the Trust Profile write and its audit event
+//      happen on exactly the same branch).
 //
 // Nothing here ever mutates change_events.previous_value/new_value or any
 // other write-once detection field, and nothing deletes an alert or change
-// event row — resolution only ever adds a terminal status + a new
-// audit_events row, so "preserve all history" holds regardless of which
+// event row — resolution only ever adds a terminal status + new
+// audit_events rows, so "preserve all history" holds regardless of which
 // resolution type fired.
 
-import type {
-  AlertResolutionStore,
-  ResolutionType,
-  ResolveAlertInput,
-  ResolveAlertOutcome,
-} from "./types";
+import { AUDIT_EVENT_TYPES } from "../audit/event-types";
+import type { AlertResolutionStore, ResolveAlertInput, ResolveAlertOutcome } from "./types";
 
 function validate(input: ResolveAlertInput): string | null {
   if (!input.reason || input.reason.trim().length === 0) {
@@ -48,10 +47,6 @@ function validate(input: ResolveAlertInput): string | null {
     }
   }
   return null;
-}
-
-function auditEventType(resolutionType: ResolutionType): string {
-  return `alert.resolved.${resolutionType}`;
 }
 
 export async function resolveAlert(
@@ -109,7 +104,8 @@ export async function resolveAlert(
     organisationId: alert.organisationId,
     vendorId: changeEvent.vendorId,
     actor: input.actor,
-    eventType: auditEventType(input.resolutionType),
+    eventType: AUDIT_EVENT_TYPES.ALERT_RESOLVED,
+    entityType: "alert",
     entityId: alert.id,
     metadata: {
       changeEventId: changeEvent.id,
@@ -122,6 +118,26 @@ export async function resolveAlert(
         : {}),
     },
   });
+
+  // Same branch as step 4: the Trust Profile only changed on
+  // verified_accepted, so only that branch gets a trust_profile_updated
+  // audit event alongside alert_resolved.
+  if (input.resolutionType === "verified_accepted") {
+    await store.recordAuditEvent({
+      organisationId: alert.organisationId,
+      vendorId: changeEvent.vendorId,
+      actor: input.actor,
+      eventType: AUDIT_EVENT_TYPES.TRUST_PROFILE_UPDATED,
+      entityType: "trust_profile_attribute",
+      entityId: changeEvent.vendorId,
+      metadata: {
+        attributeKey: changeEvent.attributeKey,
+        newValue: changeEvent.newValue,
+        changeEventId: changeEvent.id,
+        alertId: alert.id,
+      },
+    });
+  }
 
   return {
     status: "resolved",

@@ -24,7 +24,7 @@ function validateInput(input: CheckVendorInput): CheckVendorInput {
 // handler maps to a small, always-JSON-serializable summary rather than
 // returning RunVendorCheckOutcome verbatim.
 export interface CheckVendorResult {
-  status: "success" | "failed" | "skipped" | "no_identifier";
+  status: "success" | "failed" | "skipped" | "no_identifier" | "vendor_not_found";
   runId?: string;
   snapshotId?: string;
   errorType?: string;
@@ -49,6 +49,7 @@ export const checkVendorCompaniesHouseFn = createServerFn({ method: "POST" })
         };
       case "skipped":
       case "no_identifier":
+      case "vendor_not_found":
         return { status: outcome.status };
     }
   });

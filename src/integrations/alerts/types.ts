@@ -5,6 +5,8 @@
 // ./resolve-alert.server.ts (client.ts / client.server.ts split used
 // elsewhere in this codebase).
 
+import type { AuditEventType } from "../audit/event-types";
+
 /** Mirrors alerts.resolution_type (docs/database-design.md §8). */
 export type ResolutionType = "verified_accepted" | "false_positive" | "risk_accepted";
 
@@ -89,12 +91,13 @@ export interface AlertResolutionStore {
     changeEventId: string;
   }): Promise<void>;
 
-  /** Append an audit_events row (ERD §22 "Write audit event", every resolution type). */
+  /** Append an audit_events row (ERD §13/§22, e.g. "Write audit event", every resolution type). */
   recordAuditEvent(input: {
     organisationId: string;
     vendorId: string;
     actor: ResolutionActor;
-    eventType: string;
+    eventType: AuditEventType;
+    entityType: string;
     entityId: string;
     metadata: Record<string, unknown>;
   }): Promise<void>;

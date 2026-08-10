@@ -16,10 +16,18 @@
 // provider failure structurally cannot alter it (docs/database-design.md
 // §5 / ERD §3.4, §20).
 //
+// Also emits the ERD §13 audit trail for this half of the pipeline —
+// monitoring_started (every attempt), monitoring_failed (a failed fetch),
+// baseline_created (the first successful observation for a vendor/provider,
+// i.e. triggerType === "initial_baseline"). See ../audit for the shared
+// event-type vocabulary and append-only writer contract.
+//
 // No Node/Supabase imports here — the Supabase-backed MonitoringRunStore
 // lives in ./snapshot-pipeline.server.ts, following the client.ts /
 // client.server.ts split used elsewhere in this codebase.
 
+import { AUDIT_EVENT_TYPES } from "../audit/event-types";
+import type { AuditActor } from "../audit/types";
 import { fetchNormalizedSnapshot } from "./run-provider-fetch";
 import type {
   ExternalVendorDataProvider,
@@ -71,6 +79,17 @@ export interface MonitoringRunStore {
       | { runId: string; status: "success" | "partial"; snapshotId: string }
       | { runId: string; status: "failed"; error: ProviderError },
   ): Promise<void>;
+
+  /** Append one audit_events row (ERD §13). Insert-only — see ../audit/types.ts. */
+  recordAuditEvent(input: {
+    organisationId: string;
+    vendorId: string;
+    actor: AuditActor;
+    eventType: (typeof AUDIT_EVENT_TYPES)[keyof typeof AUDIT_EVENT_TYPES];
+    entityType: string;
+    entityId: string;
+    metadata: Record<string, unknown>;
+  }): Promise<void>;
 }
 
 /** Thrown by a MonitoringRunStore.startRun implementation when a run is already in flight. */
@@ -82,11 +101,14 @@ export class RunAlreadyInProgressError extends Error {
 }
 
 export interface RunSnapshotPipelineInput<RawData, NormalizedData> {
+  organisationId: string;
   vendorId: string;
   provider: ExternalVendorDataProvider<RawData, NormalizedData>;
   identifierValue: string;
   triggerType: TriggerType;
   fetchOptions?: ProviderFetchOptions | undefined;
+  /** Defaults to a system actor — most monitoring runs are scheduler/CLI-initiated, not a logged-in user acting in the moment. */
+  actor?: AuditActor | undefined;
 }
 
 export type SnapshotPipelineOutcome =
@@ -109,11 +131,14 @@ export async function runSnapshotPipeline<RawData, NormalizedData>(
   store: MonitoringRunStore,
   input: RunSnapshotPipelineInput<RawData, NormalizedData>,
 ): Promise<SnapshotPipelineOutcome> {
+  const actor: AuditActor = input.actor ?? { id: null, type: "system" };
+  const providerId = input.provider.metadata.providerId;
+
   let run: InsertedRun;
   try {
     run = await store.startRun({
       vendorId: input.vendorId,
-      provider: input.provider.metadata.providerId,
+      provider: providerId,
       triggerType: input.triggerType,
     });
   } catch (err) {
@@ -123,6 +148,16 @@ export async function runSnapshotPipeline<RawData, NormalizedData>(
     throw err;
   }
 
+  await store.recordAuditEvent({
+    organisationId: input.organisationId,
+    vendorId: input.vendorId,
+    actor,
+    eventType: AUDIT_EVENT_TYPES.MONITORING_STARTED,
+    entityType: "monitoring_run",
+    entityId: run.id,
+    metadata: { provider: providerId, triggerType: input.triggerType },
+  });
+
   const fetchResult = await fetchNormalizedSnapshot(
     input.provider,
     input.identifierValue,
@@ -131,6 +166,19 @@ export async function runSnapshotPipeline<RawData, NormalizedData>(
 
   if (!fetchResult.ok) {
     await store.completeRun({ runId: run.id, status: "failed", error: fetchResult.error });
+    await store.recordAuditEvent({
+      organisationId: input.organisationId,
+      vendorId: input.vendorId,
+      actor,
+      eventType: AUDIT_EVENT_TYPES.MONITORING_FAILED,
+      entityType: "monitoring_run",
+      entityId: run.id,
+      metadata: {
+        provider: providerId,
+        errorType: fetchResult.error.type,
+        errorMessage: fetchResult.error.message,
+      },
+    });
     return { status: "failed", runId: run.id, error: fetchResult.error };
   }
 
@@ -146,6 +194,18 @@ export async function runSnapshotPipeline<RawData, NormalizedData>(
   });
 
   await store.completeRun({ runId: run.id, status: "success", snapshotId: inserted.id });
+
+  if (input.triggerType === "initial_baseline") {
+    await store.recordAuditEvent({
+      organisationId: input.organisationId,
+      vendorId: input.vendorId,
+      actor,
+      eventType: AUDIT_EVENT_TYPES.BASELINE_CREATED,
+      entityType: "external_snapshots",
+      entityId: inserted.id,
+      metadata: { provider: providerId, runId: run.id },
+    });
+  }
 
   return {
     status: "success",
