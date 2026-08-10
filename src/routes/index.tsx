@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { BadgeCheck, Building2, Compass, Globe, PlayCircle, Umbrella, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/landing/SiteHeader";
