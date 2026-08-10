@@ -106,7 +106,6 @@ function initials(name: string) {
 function DashboardPage() {
   const navigate = useNavigate();
   const [dismissed, setDismissed] = useState(false);
-  const [comingSoon, setComingSoon] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
 
   const { data: vendors, isLoading } = useQuery({
