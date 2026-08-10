@@ -7,7 +7,6 @@ import {
   BarChart3,
   Settings,
   ShieldCheck,
-  ChevronRight,
   LogOut,
 } from "lucide-react";
 import type { ReactNode } from "react";
