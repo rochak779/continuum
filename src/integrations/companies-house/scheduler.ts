@@ -8,8 +8,12 @@ export interface EligibleVendor {
 export interface SchedulerStore {
   acquireLease(token: string, leaseMs: number): Promise<boolean>;
   releaseLease(token: string): Promise<void>;
+  recoverStaleRuns(staleBefore: string): Promise<void>;
   getEligibleVendors(limit: number): Promise<EligibleVendor[]>;
-  beginRun(vendor: EligibleVendor, trigger: "scheduled" | "retry"): Promise<string | null>;
+  beginRun(
+    vendor: EligibleVendor,
+    trigger: "manual" | "scheduled" | "retry",
+  ): Promise<string | null>;
   finishRun(runId: string, outcome: CheckOutcome | Error): Promise<void>;
   markChecked(vendorId: string, checkedAt: string): Promise<void>;
 }
@@ -20,6 +24,7 @@ export interface SchedulerOptions {
   leaseMs?: number;
   minimumRequestIntervalMs?: number;
   transientBackoffMs?: number;
+  maxRetryDelayMs?: number;
 }
 
 export interface SchedulerDeps {
@@ -60,6 +65,7 @@ export async function runScheduledBatch(
   const leaseMs = options.leaseMs ?? 15 * 60_000;
   const minimumRequestIntervalMs = options.minimumRequestIntervalMs ?? 500;
   const transientBackoffMs = options.transientBackoffMs ?? 1_000;
+  const maxRetryDelayMs = options.maxRetryDelayMs ?? 5 * 60_000;
   const sleep =
     deps.sleep ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
   const now = deps.now ?? (() => new Date());
@@ -75,9 +81,14 @@ export async function runScheduledBatch(
   let skipped = 0;
 
   try {
+    await deps.store.recoverStaleRuns(new Date(now().getTime() - leaseMs).toISOString());
     vendors = await deps.store.getEligibleVendors(batchSize);
     for (const [index, vendor] of vendors.entries()) {
       if (index > 0 && minimumRequestIntervalMs > 0) await sleep(minimumRequestIntervalMs);
+      if (index > 0 && !(await deps.store.acquireLease(token, leaseMs))) {
+        skipped += vendors.length - index;
+        break;
+      }
       const runId = await deps.store.beginRun(vendor, "scheduled");
       if (!runId) {
         skipped += 1;
@@ -90,7 +101,9 @@ export async function runScheduledBatch(
           finalOutcome = await deps.runCheck(vendor);
           if (finalOutcome.status === "ok") break;
           if (!TRANSIENT_ERRORS.has(finalOutcome.errorType) || attempt === maxAttempts) break;
-          await sleep(retryDelay(finalOutcome, attempt, transientBackoffMs));
+          const delay = retryDelay(finalOutcome, attempt, transientBackoffMs);
+          if (delay > maxRetryDelayMs) break;
+          await sleep(delay);
         }
         if (!(finalOutcome instanceof Error) && finalOutcome.status === "ok") succeeded += 1;
         else failed += 1;

@@ -36,6 +36,7 @@ function fakeStore(overrides: Partial<SchedulerStore> = {}) {
   const store: SchedulerStore = {
     acquireLease: async () => true,
     releaseLease: async () => undefined,
+    recoverStaleRuns: async () => undefined,
     getEligibleVendors: async () => vendors,
     beginRun: async (vendor) => `run-${vendor.vendorId}`,
     finishRun: async (_id, outcome) => {
@@ -55,6 +56,21 @@ describe("runScheduledBatch", () => {
       status: "overlap_skipped",
     });
     expect(runCheck).not.toHaveBeenCalled();
+  });
+
+  it("recovers abandoned runs before claiming eligible vendors", async () => {
+    const calls: string[] = [];
+    const { store } = fakeStore({
+      recoverStaleRuns: async () => {
+        calls.push("recover");
+      },
+      getEligibleVendors: async () => {
+        calls.push("eligible");
+        return [];
+      },
+    });
+    await runScheduledBatch({ store, runCheck: async () => ok() });
+    expect(calls).toEqual(["recover", "eligible"]);
   });
 
   it("batches eligible vendors and isolates per-vendor exceptions", async () => {
@@ -93,6 +109,23 @@ describe("runScheduledBatch", () => {
     expect(runCheck).toHaveBeenCalledOnce();
   });
 
+  it("stops claiming vendors if the batch lease cannot be renewed", async () => {
+    let leaseAttempt = 0;
+    const { store } = fakeStore({
+      acquireLease: async () => {
+        leaseAttempt += 1;
+        return leaseAttempt === 1;
+      },
+    });
+    const runCheck = vi.fn(async () => ok());
+    const result = await runScheduledBatch(
+      { store, runCheck, sleep: async () => undefined },
+      { minimumRequestIntervalMs: 0 },
+    );
+    expect(runCheck).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ succeeded: 1, skipped: 1 });
+  });
+
   it("backs off on 429 and succeeds on retry", async () => {
     const { store } = fakeStore({ getEligibleVendors: async () => [vendors[0]!] });
     const sleep = vi.fn(async () => undefined);
@@ -112,6 +145,24 @@ describe("runScheduledBatch", () => {
     expect(result.succeeded).toBe(1);
     expect(runCheck).toHaveBeenCalledTimes(2);
     expect(sleep).toHaveBeenCalledWith(7_000);
+  });
+
+  it("does not hold the worker open for an excessive Retry-After", async () => {
+    const { store } = fakeStore({ getEligibleVendors: async () => [vendors[0]!] });
+    const sleep = vi.fn(async () => undefined);
+    const runCheck = vi.fn(async () => ({
+      status: "failed" as const,
+      errorType: "rate_limited",
+      message: "429",
+      retryAfterSeconds: 3_600,
+    }));
+    const result = await runScheduledBatch(
+      { store, runCheck, sleep },
+      { minimumRequestIntervalMs: 0 },
+    );
+    expect(result.failed).toBe(1);
+    expect(runCheck).toHaveBeenCalledOnce();
+    expect(sleep).not.toHaveBeenCalled();
   });
 
   it("retries transient failures but not permanent failures", async () => {

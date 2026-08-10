@@ -22,6 +22,21 @@ export function createSupabaseSchedulerStore(db: AdminClient): SchedulerStore {
       if (error) throw error;
     },
 
+    async recoverStaleRuns(staleBefore) {
+      const { error } = await db
+        .from("vendor_monitoring_runs")
+        .update({
+          status: "failed",
+          completed_at: new Date().toISOString(),
+          error_type: "abandoned_run",
+          error_message: "Monitoring worker stopped before completing the run.",
+        })
+        .eq("provider", "companies_house")
+        .eq("status", "running")
+        .lt("started_at", staleBefore);
+      if (error) throw error;
+    },
+
     async getEligibleVendors(limit) {
       const { data: configs, error } = await db
         .from("vendor_monitoring_config")
@@ -111,4 +126,27 @@ export async function runScheduledCompaniesHouseMonitoring(): Promise<
   const runCheck = (vendor: EligibleVendor): Promise<CheckOutcome> =>
     runVendorCompaniesHouseCheck(vendor.vendorId, vendor.companyNumber, { persist: true });
   return runScheduledBatch({ store, runCheck });
+}
+
+export async function runRecordedManualCompaniesHouseCheck(
+  vendor: EligibleVendor,
+): Promise<CheckOutcome> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const store = createSupabaseSchedulerStore(supabaseAdmin);
+  const runId = await store.beginRun(vendor, "manual");
+  if (!runId) throw new Error("A monitoring check is already running for this vendor");
+
+  let outcome: CheckOutcome;
+  try {
+    outcome = await runVendorCompaniesHouseCheck(vendor.vendorId, vendor.companyNumber, {
+      persist: true,
+    });
+  } catch (error) {
+    const failure = error instanceof Error ? error : new Error(String(error));
+    await store.finishRun(runId, failure);
+    throw failure;
+  }
+  await store.finishRun(runId, outcome);
+  await store.markChecked(vendor.vendorId, new Date().toISOString());
+  return outcome;
 }

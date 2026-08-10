@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fetchCompanyProfile, normaliseCompanyNumber } from "./client";
+import { fetchCompanyProfile, normaliseCompanyNumber, parseRetryAfter } from "./client";
 import type { CompaniesHouseRawProfile } from "./types";
 
 const API_KEY = "test-key";
@@ -39,6 +39,15 @@ describe("normaliseCompanyNumber", () => {
     expect(normaliseCompanyNumber(" sc123456 ")).toBe("SC123456");
     expect(normaliseCompanyNumber("123")).toBeNull();
     expect(normaliseCompanyNumber("not-a-number!")).toBeNull();
+  });
+});
+
+describe("parseRetryAfter", () => {
+  it("accepts seconds and HTTP dates but rejects negative or invalid values", () => {
+    expect(parseRetryAfter("30", 0)).toBe(30);
+    expect(parseRetryAfter("Thu, 01 Jan 1970 00:01:00 GMT", 0)).toBe(60);
+    expect(parseRetryAfter("-1", 0)).toBeUndefined();
+    expect(parseRetryAfter("not-a-date", 0)).toBeUndefined();
   });
 });
 
@@ -120,5 +129,17 @@ describe("fetchCompanyProfile", () => {
     const { fn } = stubFetch(jsonResponse({ foo: "bar" }));
     const result = await fetchCompanyProfile("00000006", { apiKey: API_KEY, fetchImpl: fn });
     expect(result).toMatchObject({ ok: false, errorType: "malformed_response" });
+  });
+
+  it("rejects mismatched identifiers and missing status in a 200 response", async () => {
+    const mismatch = stubFetch(jsonResponse({ ...SAMPLE, company_number: "00000007" }));
+    expect(
+      await fetchCompanyProfile("00000006", { apiKey: API_KEY, fetchImpl: mismatch.fn }),
+    ).toMatchObject({ ok: false, errorType: "malformed_response" });
+
+    const missingStatus = stubFetch(jsonResponse({ ...SAMPLE, company_status: undefined }));
+    expect(
+      await fetchCompanyProfile("00000006", { apiKey: API_KEY, fetchImpl: missingStatus.fn }),
+    ).toMatchObject({ ok: false, errorType: "malformed_response" });
   });
 });

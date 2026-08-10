@@ -252,6 +252,7 @@ describe("complete vendor monitoring lifecycle", () => {
     const scheduler: SchedulerStore = {
       acquireLease: async () => true,
       releaseLease: async () => undefined,
+      recoverStaleRuns: async () => undefined,
       getEligibleVendors: async () => [{ vendorId: "vendor-a", companyNumber: "00000006" }],
       beginRun: async () => "run-1",
       finishRun: async () => undefined,

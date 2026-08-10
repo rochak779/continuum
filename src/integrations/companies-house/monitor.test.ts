@@ -339,4 +339,14 @@ describe("normaliseCompanyProfile", () => {
     expect(snap.sicCodes).toEqual(["62012", "63110"]);
     expect(snap.registeredOfficeAddress).toEqual({ postal_code: "EC1A 1AA" });
   });
+
+  it("trims address values and removes blank or duplicate SIC codes", () => {
+    const snap = normaliseCompanyProfile({
+      company_number: "00000006",
+      sic_codes: [" 62012 ", "", "62012"],
+      registered_office_address: { address_line_1: " 1 High Street " },
+    });
+    expect(snap.sicCodes).toEqual(["62012"]);
+    expect(snap.registeredOfficeAddress).toEqual({ address_line_1: "1 High Street" });
+  });
 });

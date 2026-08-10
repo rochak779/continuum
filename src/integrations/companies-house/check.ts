@@ -8,6 +8,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { matchesMonitoredCompanyNumber } from "./authorization";
 
 export interface CheckVendorInput {
   vendorId: string;
@@ -30,13 +31,17 @@ export const checkVendorCompaniesHouseFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: vendor, error } = await context.supabase
       .from("vendors")
-      .select("id")
+      .select("id,companies_house_number")
       .eq("id", data.vendorId)
       .maybeSingle();
     if (error) throw error;
     if (!vendor) throw new Error("Vendor not found or is not available to this user");
-    const { runVendorCompaniesHouseCheck } = await import("./monitor.server");
-    return runVendorCompaniesHouseCheck(data.vendorId, data.companyNumber, {
-      persist: true,
+    if (!matchesMonitoredCompanyNumber(vendor.companies_house_number, data.companyNumber)) {
+      throw new Error("Company number does not match this vendor's monitored identifier");
+    }
+    const { runRecordedManualCompaniesHouseCheck } = await import("./scheduler.server");
+    return runRecordedManualCompaniesHouseCheck({
+      vendorId: data.vendorId,
+      companyNumber: data.companyNumber,
     });
   });
