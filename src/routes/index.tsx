@@ -59,11 +59,13 @@ function Index() {
 
               <div className="mt-8 flex flex-wrap gap-4">
                 <Button
+                  asChild
                   size="lg"
                   className="rounded-lg bg-primary-container px-5 py-2.5 text-base font-medium hover:bg-primary"
                 >
-                  Get Started
+                  <Link to="/signup">Get Started</Link>
                 </Button>
+
                 <Button
                   size="lg"
                   variant="outline"
