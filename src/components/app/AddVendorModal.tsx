@@ -77,7 +77,7 @@ export function AddVendorModal({ isOpen, onClose, hideUpload }: AddVendorModalPr
 
         <div className="grid gap-6 bg-background px-8 py-8 md:grid-cols-3">
           {options.map((option) => (
-            <OptionCard key={option.key} {...option} />
+            <OptionCard key={option.id} {...option} />
           ))}
         </div>
 
