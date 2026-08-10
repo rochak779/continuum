@@ -86,6 +86,51 @@ export type Database = {
         }
         Relationships: []
       }
+      vendors: {
+        Row: {
+          category: string | null
+          company_name: string
+          country: string | null
+          created_at: string
+          email: string | null
+          id: string
+          internal_owner: string | null
+          internal_vendor_id: string | null
+          owner_id: string
+          risk_level: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          company_name: string
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          internal_owner?: string | null
+          internal_vendor_id?: string | null
+          owner_id: string
+          risk_level?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          company_name?: string
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          internal_owner?: string | null
+          internal_vendor_id?: string | null
+          owner_id?: string
+          risk_level?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
