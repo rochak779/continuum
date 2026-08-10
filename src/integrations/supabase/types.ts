@@ -131,6 +131,144 @@ export type Database = {
         }
         Relationships: []
       }
+      vendor_company_snapshots: {
+        Row: {
+          accounts_next_due: string | null
+          accounts_status: string | null
+          checked_at: string
+          company_name: string | null
+          company_number: string
+          company_status: string | null
+          company_type: string | null
+          confirmation_statement_next_due: string | null
+          created_at: string
+          date_of_creation: string | null
+          id: string
+          jurisdiction: string | null
+          raw_response: Json | null
+          registered_office_address: Json | null
+          sic_codes: string[] | null
+          source: string
+          vendor_id: string
+        }
+        Insert: {
+          accounts_next_due?: string | null
+          accounts_status?: string | null
+          checked_at?: string
+          company_name?: string | null
+          company_number: string
+          company_status?: string | null
+          company_type?: string | null
+          confirmation_statement_next_due?: string | null
+          created_at?: string
+          date_of_creation?: string | null
+          id?: string
+          jurisdiction?: string | null
+          raw_response?: Json | null
+          registered_office_address?: Json | null
+          sic_codes?: string[] | null
+          source?: string
+          vendor_id: string
+        }
+        Update: {
+          accounts_next_due?: string | null
+          accounts_status?: string | null
+          checked_at?: string
+          company_name?: string | null
+          company_number?: string
+          company_status?: string | null
+          company_type?: string | null
+          confirmation_statement_next_due?: string | null
+          created_at?: string
+          date_of_creation?: string | null
+          id?: string
+          jurisdiction?: string | null
+          raw_response?: Json | null
+          registered_office_address?: Json | null
+          sic_codes?: string[] | null
+          source?: string
+          vendor_id?: string
+        }
+        Relationships: []
+      }
+      vendor_monitoring_alerts: {
+        Row: {
+          attribute_checked: string
+          checked_at: string
+          created_at: string
+          dedupe_key: string
+          detected_at: string
+          id: string
+          new_value: string | null
+          previous_value: string | null
+          severity: string
+          source: string
+          status: string
+          vendor_id: string
+        }
+        Insert: {
+          attribute_checked: string
+          checked_at: string
+          created_at?: string
+          dedupe_key: string
+          detected_at?: string
+          id?: string
+          new_value?: string | null
+          previous_value?: string | null
+          severity: string
+          source?: string
+          status?: string
+          vendor_id: string
+        }
+        Update: {
+          attribute_checked?: string
+          checked_at?: string
+          created_at?: string
+          dedupe_key?: string
+          detected_at?: string
+          id?: string
+          new_value?: string | null
+          previous_value?: string | null
+          severity?: string
+          source?: string
+          status?: string
+          vendor_id?: string
+        }
+        Relationships: []
+      }
+      vendor_monitoring_failures: {
+        Row: {
+          checked_at: string
+          company_number: string | null
+          error_type: string
+          http_status: number | null
+          id: string
+          message: string | null
+          source: string
+          vendor_id: string | null
+        }
+        Insert: {
+          checked_at?: string
+          company_number?: string | null
+          error_type: string
+          http_status?: number | null
+          id?: string
+          message?: string | null
+          source?: string
+          vendor_id?: string | null
+        }
+        Update: {
+          checked_at?: string
+          company_number?: string | null
+          error_type?: string
+          http_status?: number | null
+          id?: string
+          message?: string | null
+          source?: string
+          vendor_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
