@@ -28,10 +28,13 @@ browser policy. Only the service role can access it.
 ## Companies House provider boundary
 
 `src/integrations/companies-house/client.ts` is the only module that calls the
-Companies House REST API. The API key comes from
-`COMPANIES_HOUSE_API_KEY` in server environment configuration and is sent as
-the Basic-auth username with a blank password. It is never returned to the
-browser, stored in monitoring records, or logged.
+Companies House REST API. `src/integrations/companies-house/config.server.ts`
+resolves which environment is used and which key/base URL pair to pass it:
+`COMPANIES_HOUSE_ENV=production` uses `COMPANIES_HOUSE_API_KEY` against the
+live API; anything else (including unset) defaults to sandbox, using
+`COMPANIES_HOUSE_SANDBOX_API_KEY` against the Companies House sandbox API.
+The key is sent as the Basic-auth username with a blank password. It is never
+returned to the browser, stored in monitoring records, or logged.
 
 The adapter:
 
@@ -142,7 +145,9 @@ Required server-side secrets:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_PUBLISHABLE_KEY`
-- `COMPANIES_HOUSE_API_KEY`
+- `COMPANIES_HOUSE_ENV` (`"sandbox"` | `"production"`, defaults to sandbox)
+- `COMPANIES_HOUSE_API_KEY` (production)
+- `COMPANIES_HOUSE_SANDBOX_API_KEY` (sandbox)
 - `MONITORING_SCHEDULER_SECRET`
 
 Secrets must be configured in the deployment environment/Vault and never
