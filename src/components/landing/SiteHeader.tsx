@@ -30,12 +30,13 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <a
-            href="#"
+          <Link
+            to="/auth"
             className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:block"
           >
             Login
-          </a>
+          </Link>
+
           <Button className="rounded-lg bg-primary-container px-5 py-2.5 font-medium hover:bg-primary">
             Get Started
           </Button>
