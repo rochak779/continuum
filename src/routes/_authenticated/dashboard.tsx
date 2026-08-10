@@ -132,9 +132,6 @@ function DashboardPage() {
       }))
     : sampleVendors;
 
-  useEffect(() => {
-    if (!showOnboarding) setComingSoon(false);
-  }, [showOnboarding]);
 
   return (
     <AppShell>
