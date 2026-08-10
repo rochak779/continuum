@@ -42,7 +42,6 @@ const credentialsSchema = z.object({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -72,10 +71,11 @@ function AuthPage() {
 
     setLoading(true);
     try {
-      if (mode === "signin") {
+      {
         const { error: signInError } = await supabase.auth.signInWithPassword(parsed.data);
         if (signInError) throw signInError;
-      } else {
+      }
+      if (false) {
         const { data, error: signUpError } = await supabase.auth.signUp({
           ...parsed.data,
           options: { emailRedirectTo: window.location.origin },
@@ -121,12 +121,10 @@ function AuthPage() {
         <div className="flex flex-1 items-center">
           <div className="mx-auto w-full max-w-[420px] py-12">
             <h1 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl">
-              {mode === "signin" ? "Welcome back" : "Create account"}
+              Welcome back
             </h1>
             <p className="mt-3 text-lg text-muted-foreground">
-              {mode === "signin"
-                ? "Sign in to continue to your account"
-                : "Start managing vendor risk in minutes"}
+              Sign in to continue to your account
             </p>
 
             <form onSubmit={handleSubmit} className="mt-10 space-y-5">
@@ -153,13 +151,13 @@ function AuthPage() {
                   <Input
                     id="password"
                     type="password"
-                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                    autoComplete="current-password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="h-14 rounded-xl border-border bg-surface-container-lowest px-4 pr-40 text-base"
                   />
-                  {mode === "signin" && (
+                  {true && (
                     <button
                       type="button"
                       onClick={handleForgotPassword}
@@ -180,7 +178,7 @@ function AuthPage() {
                 className="h-14 w-full rounded-xl bg-primary text-base font-semibold hover:bg-primary/90"
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {mode === "signin" ? "Sign in" : "Sign up"}
+                Sign in
               </Button>
             </form>
 
