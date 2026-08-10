@@ -71,20 +71,9 @@ function AuthPage() {
 
     setLoading(true);
     try {
-      {
-        const { error: signInError } = await supabase.auth.signInWithPassword(parsed.data);
-        if (signInError) throw signInError;
-      }
-      if (false) {
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          ...parsed.data,
-          options: { emailRedirectTo: window.location.origin },
-        });
-        if (signUpError) throw signUpError;
-        if (!data.session) {
-          setNotice("Check your email to confirm your account, then sign in.");
-        }
-      }
+      const { error: signInError } = await supabase.auth.signInWithPassword(parsed.data);
+      if (signInError) throw signInError;
+
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
