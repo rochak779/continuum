@@ -37,12 +37,24 @@ const SAMPLE: CompaniesHouseRawProfile = {
 };
 
 const originalApiKeyEnv = process.env["COMPANIES_HOUSE_API_KEY"];
+const originalSandboxKeyEnv = process.env["COMPANIES_HOUSE_SANDBOX_API_KEY"];
+const originalEnvFlag = process.env["COMPANIES_HOUSE_ENV"];
 
 afterEach(() => {
   if (originalApiKeyEnv === undefined) {
     delete process.env["COMPANIES_HOUSE_API_KEY"];
   } else {
     process.env["COMPANIES_HOUSE_API_KEY"] = originalApiKeyEnv;
+  }
+  if (originalSandboxKeyEnv === undefined) {
+    delete process.env["COMPANIES_HOUSE_SANDBOX_API_KEY"];
+  } else {
+    process.env["COMPANIES_HOUSE_SANDBOX_API_KEY"] = originalSandboxKeyEnv;
+  }
+  if (originalEnvFlag === undefined) {
+    delete process.env["COMPANIES_HOUSE_ENV"];
+  } else {
+    process.env["COMPANIES_HOUSE_ENV"] = originalEnvFlag;
   }
 });
 
@@ -75,8 +87,9 @@ describe("createCompaniesHouseProvider validateIdentifier", () => {
 });
 
 describe("createCompaniesHouseProvider fetch: API key handling", () => {
-  it("reads the API key from process.env.COMPANIES_HOUSE_API_KEY by default", async () => {
-    process.env["COMPANIES_HOUSE_API_KEY"] = "env-key";
+  it("reads the sandbox key by default when COMPANIES_HOUSE_ENV is unset", async () => {
+    delete process.env["COMPANIES_HOUSE_ENV"];
+    process.env["COMPANIES_HOUSE_SANDBOX_API_KEY"] = "env-sandbox-key";
     const { fn, calls } = stubFetch(jsonResponse(SAMPLE));
     const provider = createCompaniesHouseProvider({});
 
@@ -84,10 +97,26 @@ describe("createCompaniesHouseProvider fetch: API key handling", () => {
 
     expect(result.ok).toBe(true);
     expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toContain("api-sandbox.company-information.service.gov.uk");
+  });
+
+  it("reads the production key when COMPANIES_HOUSE_ENV=production", async () => {
+    process.env["COMPANIES_HOUSE_ENV"] = "production";
+    process.env["COMPANIES_HOUSE_API_KEY"] = "env-prod-key";
+    const { fn, calls } = stubFetch(jsonResponse(SAMPLE));
+    const provider = createCompaniesHouseProvider({});
+
+    const result = await provider.fetch("00000006", { fetchImpl: fn });
+
+    expect(result.ok).toBe(true);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toContain("api.company-information.service.gov.uk");
+    expect(calls[0]?.url).not.toContain("api-sandbox");
   });
 
   it("fails with a non-retryable authentication_error when no API key is configured", async () => {
-    delete process.env["COMPANIES_HOUSE_API_KEY"];
+    delete process.env["COMPANIES_HOUSE_ENV"];
+    delete process.env["COMPANIES_HOUSE_SANDBOX_API_KEY"];
     const { fn, calls } = stubFetch(jsonResponse(SAMPLE));
     const provider = createCompaniesHouseProvider({});
 

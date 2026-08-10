@@ -20,6 +20,7 @@
 // docs/database-design.md / ERD §19 for where that lives.
 
 import { fetchCompanyProfile, normaliseCompanyNumber } from "./client";
+import { resolveCompaniesHouseConfig } from "./config.server";
 import { normaliseCompanyProfile } from "./normalize";
 import { COMPANIES_HOUSE_SOURCE } from "./types";
 import type {
@@ -72,8 +73,9 @@ function missingApiKeyError(): ProviderError {
 }
 
 export interface CompaniesHouseProviderOptions {
-  /** Overrides process.env.COMPANIES_HOUSE_API_KEY — for tests only. */
+  /** Overrides the env-resolved API key — for tests only. */
   apiKey?: string | undefined;
+  /** Overrides the env-resolved base URL — for tests only. */
   baseUrl?: string | undefined;
   timeoutMs?: number | undefined;
   now?: (() => Date) | undefined;
@@ -82,15 +84,19 @@ export interface CompaniesHouseProviderOptions {
 /**
  * Build the Companies House ExternalVendorDataProvider.
  *
- * Reads the API key from process.env.COMPANIES_HOUSE_API_KEY by default.
- * `options.apiKey` exists only so tests can inject a fake key without
- * touching process.env; production callers should not pass it.
+ * Resolves the API key + base URL from COMPANIES_HOUSE_ENV via
+ * resolveCompaniesHouseConfig() by default (sandbox unless explicitly set to
+ * "production" — see config.server.ts). `options.apiKey`/`options.baseUrl`
+ * exist only so tests can inject fakes without touching process.env;
+ * production callers should not pass them.
  */
 export function createCompaniesHouseProvider(
   options: CompaniesHouseProviderOptions = {},
 ): ExternalVendorDataProvider<CompaniesHouseRawProfile, NormalisedCompanySnapshot> {
-  const apiKey = options.apiKey ?? process.env["COMPANIES_HOUSE_API_KEY"];
-  const { baseUrl, timeoutMs } = options;
+  const resolved = resolveCompaniesHouseConfig();
+  const apiKey = options.apiKey ?? resolved.apiKey;
+  const baseUrl = options.baseUrl ?? resolved.baseUrl;
+  const timeoutMs = options.timeoutMs;
   const now = options.now ?? (() => new Date());
 
   return {

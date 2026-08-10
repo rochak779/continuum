@@ -7,6 +7,7 @@
 // file, or the service-role key + API key handling would ship to the browser.
 
 import { fetchCompanyProfile } from "./client";
+import { resolveCompaniesHouseConfig } from "./config.server";
 import {
   runCompaniesHouseCheck,
   type AlertRecord,
@@ -24,9 +25,6 @@ import {
   type JsonValue,
 } from "./types";
 
-function getApiKey(): string {
-  return process.env["COMPANIES_HOUSE_API_KEY"] ?? "";
-}
 
 // ---------------------------------------------------------------------------
 // Supabase-backed store (service role, bypasses RLS). All Companies House
@@ -211,7 +209,10 @@ export function createNullStore(): MonitoringStore {
 
 export interface RunVendorCheckOptions {
   persist?: boolean | undefined;
+  /** Overrides the env-resolved API key — for tests only. */
   apiKey?: string | undefined;
+  /** Overrides the env-resolved base URL — for tests only. */
+  baseUrl?: string | undefined;
   fetchImpl?: typeof fetch | undefined;
 }
 
@@ -225,7 +226,9 @@ export async function runVendorCompaniesHouseCheck(
   options: RunVendorCheckOptions = {},
 ): Promise<CheckOutcome> {
   const persist = options.persist ?? true;
-  const apiKey = options.apiKey ?? getApiKey();
+  const resolved = resolveCompaniesHouseConfig();
+  const apiKey = options.apiKey ?? resolved.apiKey;
+  const baseUrl = options.baseUrl ?? resolved.baseUrl;
 
   let store: MonitoringStore;
   if (persist) {
@@ -236,7 +239,7 @@ export async function runVendorCompaniesHouseCheck(
   }
 
   const fetchProfile = (num: string): Promise<CompaniesHouseResult> =>
-    fetchCompanyProfile(num, { apiKey, fetchImpl: options.fetchImpl });
+    fetchCompanyProfile(num, { apiKey, baseUrl, fetchImpl: options.fetchImpl });
 
   return runCompaniesHouseCheck({ vendorId, companyNumber }, { fetchProfile, store });
 }
