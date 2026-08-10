@@ -16,24 +16,72 @@ export type Database = {
     Tables: {
       profiles: {
         Row: {
+          company_size: string | null
+          country: string | null
           created_at: string
+          designation: string | null
           full_name: string | null
           id: string
+          industry: string | null
           organization_name: string | null
+          phone: string | null
+          primary_currency: string | null
+          time_zone: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_size?: string | null
+          country?: string | null
+          created_at?: string
+          designation?: string | null
+          full_name?: string | null
+          id: string
+          industry?: string | null
+          organization_name?: string | null
+          phone?: string | null
+          primary_currency?: string | null
+          time_zone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_size?: string | null
+          country?: string | null
+          created_at?: string
+          designation?: string | null
+          full_name?: string | null
+          id?: string
+          industry?: string | null
+          organization_name?: string | null
+          phone?: string | null
+          primary_currency?: string | null
+          time_zone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      team_invites: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          inviter_id: string
+          role: string
           updated_at: string
         }
         Insert: {
           created_at?: string
-          full_name?: string | null
-          id: string
-          organization_name?: string | null
+          email: string
+          id?: string
+          inviter_id: string
+          role?: string
           updated_at?: string
         }
         Update: {
           created_at?: string
-          full_name?: string | null
+          email?: string
           id?: string
-          organization_name?: string | null
+          inviter_id?: string
+          role?: string
           updated_at?: string
         }
         Relationships: []
