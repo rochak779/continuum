@@ -146,7 +146,7 @@ function AuthPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     className="h-14 rounded-xl border-border bg-surface-container-lowest px-4 pr-40 text-base"
                   />
-                  {true && (
+                  {(
                     <button
                       type="button"
                       onClick={handleForgotPassword}
