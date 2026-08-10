@@ -6,6 +6,7 @@ import {
   type FailureRecord,
   type MonitoringStore,
   type SnapshotRecord,
+  type TrustProfileAttributeRecord,
 } from "./monitor";
 import type { CompaniesHouseResult, NormalisedCompanySnapshot } from "./types";
 import { normaliseCompanyProfile } from "./normalize";
@@ -16,6 +17,7 @@ function createFakeStore() {
   const snapshots: (SnapshotRecord & { vendorId: string })[] = [];
   const alerts: AlertRecord[] = [];
   const failures: FailureRecord[] = [];
+  const trustProfileAttributes: TrustProfileAttributeRecord[] = [];
   const seenDedupeKeys = new Set<string>();
 
   const store: MonitoringStore = {
@@ -25,6 +27,9 @@ function createFakeStore() {
     },
     async insertSnapshot(record) {
       snapshots.push(record);
+    },
+    async createTrustBaseline(records) {
+      trustProfileAttributes.push(...records);
     },
     async insertAlerts(records) {
       let inserted = 0;
@@ -41,7 +46,7 @@ function createFakeStore() {
     },
   };
 
-  return { store, snapshots, alerts, failures };
+  return { store, snapshots, alerts, failures, trustProfileAttributes };
 }
 
 function okResult(overrides: Record<string, unknown> = {}): CompaniesHouseResult {
@@ -63,10 +68,18 @@ const VENDOR = "vendor-1";
 
 describe("runCompaniesHouseCheck", () => {
   it("persists a baseline snapshot on first successful lookup, no alerts", async () => {
-    const { store, snapshots, alerts } = createFakeStore();
+    const { store, snapshots, alerts, trustProfileAttributes } = createFakeStore();
     const outcome = await runCompaniesHouseCheck(
       { vendorId: VENDOR, companyNumber: "00000006" },
-      { fetchProfile: async () => okResult(), store },
+      {
+        fetchProfile: async () =>
+          okResult({
+            jurisdiction: "england-wales",
+            accounts: { next_due: "2027-03-31" },
+          }),
+        store,
+        now: () => new Date("2026-08-10T12:34:56.000Z"),
+      },
     );
 
     expect(outcome.status).toBe("ok");
@@ -76,10 +89,27 @@ describe("runCompaniesHouseCheck", () => {
     }
     expect(snapshots).toHaveLength(1);
     expect(alerts).toHaveLength(0);
+    expect(trustProfileAttributes).toEqual(
+      expect.arrayContaining([
+        {
+          vendorId: VENDOR,
+          attributeKey: "company_status",
+          currentValue: "active",
+          source: "companies_house",
+          verifiedAt: "2026-08-10T12:34:56.000Z",
+        },
+        expect.objectContaining({
+          attributeKey: "registered_office_address",
+          currentValue: { address_line_1: "1 High Street" },
+        }),
+        expect.objectContaining({ attributeKey: "sic_codes", currentValue: ["62012"] }),
+        expect.objectContaining({ attributeKey: "accounts_next_due", currentValue: "2027-03-31" }),
+      ]),
+    );
   });
 
   it("creates no alert when a second check is unchanged", async () => {
-    const { store, snapshots, alerts } = createFakeStore();
+    const { store, snapshots, alerts, trustProfileAttributes } = createFakeStore();
     const deps = { fetchProfile: async () => okResult(), store };
 
     await runCompaniesHouseCheck({ vendorId: VENDOR, companyNumber: "00000006" }, deps);
@@ -87,6 +117,9 @@ describe("runCompaniesHouseCheck", () => {
 
     expect(snapshots).toHaveLength(2); // both observations preserved
     expect(alerts).toHaveLength(0);
+    expect(trustProfileAttributes.filter((a) => a.attributeKey === "company_status")).toHaveLength(
+      1,
+    );
   });
 
   it("creates a critical alert on active -> dissolved", async () => {
@@ -112,7 +145,7 @@ describe("runCompaniesHouseCheck", () => {
   });
 
   it("records a monitoring failure and writes no snapshot on API failure", async () => {
-    const { store, snapshots, alerts, failures } = createFakeStore();
+    const { store, snapshots, alerts, failures, trustProfileAttributes } = createFakeStore();
 
     const outcome = await runCompaniesHouseCheck(
       { vendorId: VENDOR, companyNumber: "00000006" },
@@ -132,6 +165,7 @@ describe("runCompaniesHouseCheck", () => {
     expect(failures).toHaveLength(1);
     expect(snapshots).toHaveLength(0); // vendor data untouched
     expect(alerts).toHaveLength(0);
+    expect(trustProfileAttributes).toHaveLength(0);
   });
 
   it("records a monitoring failure on a rate-limit (429) response", async () => {

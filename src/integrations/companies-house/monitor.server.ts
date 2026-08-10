@@ -14,6 +14,7 @@ import {
   type FailureRecord,
   type MonitoringStore,
   type SnapshotRecord,
+  type TrustProfileAttributeRecord,
 } from "./monitor";
 import {
   COMPANIES_HOUSE_SOURCE,
@@ -82,6 +83,22 @@ export function createSupabaseMonitoringStore(db: AdminClient): MonitoringStore 
       if (error) throw error;
     },
 
+    async createTrustBaseline(records: TrustProfileAttributeRecord[]): Promise<void> {
+      if (records.length === 0) return;
+      const { error } = await db.from("trust_profile_attributes").upsert(
+        records.map((record) => ({
+          vendor_id: record.vendorId,
+          attribute_key: record.attributeKey,
+          current_value: record.currentValue as never,
+          source: record.source,
+          confidence: "provider_reported",
+          verified_at: record.verifiedAt,
+        })),
+        { onConflict: "vendor_id,attribute_key", ignoreDuplicates: true },
+      );
+      if (error) throw error;
+    },
+
     async insertAlerts(records: AlertRecord[]): Promise<{ inserted: number }> {
       if (records.length === 0) return { inserted: 0 };
       // Idempotent on dedupe_key: existing alerts for the same detected change
@@ -130,6 +147,9 @@ export function createNullStore(): MonitoringStore {
       return null;
     },
     async insertSnapshot() {
+      /* dry run: nothing persisted */
+    },
+    async createTrustBaseline() {
       /* dry run: nothing persisted */
     },
     async insertAlerts() {

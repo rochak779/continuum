@@ -86,6 +86,39 @@ export type Database = {
         }
         Relationships: []
       }
+      trust_profile_attributes: {
+        Row: {
+          attribute_key: string
+          confidence: string
+          current_value: Json
+          id: string
+          source: string
+          updated_at: string
+          vendor_id: string
+          verified_at: string
+        }
+        Insert: {
+          attribute_key: string
+          confidence?: string
+          current_value: Json
+          id?: string
+          source: string
+          updated_at?: string
+          vendor_id: string
+          verified_at: string
+        }
+        Update: {
+          attribute_key?: string
+          confidence?: string
+          current_value?: Json
+          id?: string
+          source?: string
+          updated_at?: string
+          vendor_id?: string
+          verified_at?: string
+        }
+        Relationships: []
+      }
       vendors: {
         Row: {
           category: string | null

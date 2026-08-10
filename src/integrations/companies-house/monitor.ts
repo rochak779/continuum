@@ -40,13 +40,52 @@ export interface FailureRecord {
   checkedAt: string;
 }
 
+export interface TrustProfileAttributeRecord {
+  vendorId: string;
+  attributeKey: string;
+  currentValue: unknown;
+  source: string;
+  verifiedAt: string;
+}
+
 // Storage boundary. `insertAlerts` MUST be idempotent on dedupeKey so repeated
 // checks never create duplicate alerts for the same detected change.
 export interface MonitoringStore {
   getLatestSnapshot(vendorId: string): Promise<NormalisedCompanySnapshot | null>;
   insertSnapshot(record: SnapshotRecord & { vendorId: string }): Promise<void>;
+  createTrustBaseline(records: TrustProfileAttributeRecord[]): Promise<void>;
   insertAlerts(records: AlertRecord[]): Promise<{ inserted: number }>;
   recordFailure(record: FailureRecord): Promise<void>;
+}
+
+export function buildTrustBaseline(
+  vendorId: string,
+  snapshot: NormalisedCompanySnapshot,
+  verifiedAt: string,
+): TrustProfileAttributeRecord[] {
+  const values: Record<string, unknown> = {
+    company_number: snapshot.companyNumber,
+    company_name: snapshot.companyName,
+    company_status: snapshot.companyStatus,
+    company_type: snapshot.companyType,
+    registered_office_address: snapshot.registeredOfficeAddress,
+    date_of_creation: snapshot.dateOfCreation,
+    jurisdiction: snapshot.jurisdiction,
+    accounts_next_due: snapshot.accountsNextDue,
+    accounts_status: snapshot.accountsStatus,
+    confirmation_statement_next_due: snapshot.confirmationStatementNextDue,
+    sic_codes: snapshot.sicCodes,
+  };
+
+  return Object.entries(values)
+    .filter(([, value]) => value !== null && value !== "")
+    .map(([attributeKey, currentValue]) => ({
+      vendorId,
+      attributeKey,
+      currentValue,
+      source: COMPANIES_HOUSE_SOURCE,
+      verifiedAt,
+    }));
 }
 
 export interface RunCheckParams {
@@ -126,8 +165,12 @@ export async function runCompaniesHouseCheck(
     checkedAt,
   });
 
+  if (isBaseline) {
+    await store.createTrustBaseline(buildTrustBaseline(vendorId, snapshot, checkedAt));
+  }
+
   let alertsCreated = 0;
-  if (changes.length > 0) {
+  if (!isBaseline && changes.length > 0) {
     const alertRecords: AlertRecord[] = changes.map((change) => ({
       vendorId,
       source: COMPANIES_HOUSE_SOURCE,
