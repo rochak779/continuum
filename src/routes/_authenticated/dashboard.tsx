@@ -365,65 +365,13 @@ function DashboardPage() {
       </div>
 
       {showOnboarding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4">
-          <div className="w-full max-w-[1120px] overflow-hidden rounded-2xl bg-card shadow-elevated">
-            <div className="flex items-start gap-4 border-b border-border px-8 py-7">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-primary">
-                <Store className="h-6 w-6" />
-              </span>
-              <div className="flex-1">
-                <h2 className="text-3xl font-bold tracking-tight text-foreground">
-                  Add your vendors
-                </h2>
-                <p className="mt-1 text-muted-foreground">
-                  Choose how you'd like to import vendor data into Continuum.
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() => { setDismissed(true); setManualOpen(false); }}
-                className="text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="grid gap-6 bg-background px-8 py-8 md:grid-cols-3">
-              <OptionCard
-                icon={<PlugZap className="h-6 w-6" />}
-                title="Connect your ERP"
-                description="Sync automatically with SAP, Oracle, NetSuite, and other major enterprise systems."
-                badge={comingSoon ? "Coming soon" : undefined}
-                onClick={() => setComingSoon(true)}
-              />
-              <OptionCard
-                icon={<FileUp className="h-6 w-6" />}
-                title="Add vendors by uploading a file"
-                description="Import via CSV or Excel. Download our template for seamless mapping."
-                onClick={() => navigate({ to: "/vendors/upload" })}
-              />
-              <OptionCard
-                icon={<FilePen className="h-6 w-6" />}
-                title="Add vendors manually"
-                description="Enter details one by one using our structured intake form for strict data control."
-                onClick={() => navigate({ to: "/vendors/new" })}
-              />
-            </div>
-
-            <div className="flex items-center justify-between border-t border-border px-8 py-5">
-              <p className="text-sm text-muted-foreground">
-                Need help?{" "}
-                <a href="#" className="font-medium text-primary hover:underline">
-                  View import documentation
-                </a>
-              </p>
-              <Button variant="outline" onClick={() => { setDismissed(true); setManualOpen(false); }}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
+        <AddVendorModal
+          isOpen={showOnboarding}
+          onClose={() => {
+            setDismissed(true);
+            setManualOpen(false);
+          }}
+        />
       )}
     </AppShell>
   );
