@@ -27,6 +27,8 @@ export interface SnapshotRecord extends NormalisedCompanySnapshot {
 
 export interface AlertRecord {
   vendorId: string;
+  changeEventId: string;
+  snapshotId: string;
   source: string;
   attribute: string;
   previousValue: string | null;
@@ -46,6 +48,10 @@ export interface ChangeEventRecord {
   severity: DetectedChange["severity"];
   detectedAt: string;
   dedupeKey: string;
+}
+
+export interface PersistedChangeEvent extends ChangeEventRecord {
+  id: string;
 }
 
 export interface FailureRecord {
@@ -72,9 +78,28 @@ export interface MonitoringStore {
   getTrustProfile(vendorId: string): Promise<TrustProfile>;
   insertSnapshot(record: SnapshotRecord & { vendorId: string }): Promise<string>;
   createTrustBaseline(records: TrustProfileAttributeRecord[]): Promise<void>;
-  insertChangeEvents(records: ChangeEventRecord[]): Promise<{ inserted: number }>;
+  insertChangeEvents(
+    records: ChangeEventRecord[],
+  ): Promise<{ inserted: number; events: PersistedChangeEvent[] }>;
   insertAlerts(records: AlertRecord[]): Promise<{ inserted: number }>;
   recordFailure(record: FailureRecord): Promise<void>;
+}
+
+export function buildActionableAlerts(events: PersistedChangeEvent[]): AlertRecord[] {
+  return events
+    .filter((event) => event.severity === "critical" || event.severity === "attention")
+    .map((event) => ({
+      vendorId: event.vendorId,
+      changeEventId: event.id,
+      snapshotId: event.snapshotId,
+      source: event.source,
+      attribute: event.attribute,
+      previousValue: formatChangeValue(event.previousValue),
+      newValue: formatChangeValue(event.newValue),
+      severity: event.severity,
+      checkedAt: event.detectedAt,
+      dedupeKey: event.dedupeKey,
+    }));
 }
 
 export function buildTrustBaseline(
@@ -208,18 +233,10 @@ export async function runCompaniesHouseCheck(
       detectedAt: checkedAt,
       dedupeKey: buildChangeDedupeKey(vendorId, COMPANIES_HOUSE_SOURCE, change),
     }));
-    eventsCreated = (await store.insertChangeEvents(eventRecords)).inserted;
+    const persisted = await store.insertChangeEvents(eventRecords);
+    eventsCreated = persisted.inserted;
 
-    const alertRecords: AlertRecord[] = changes.map((change) => ({
-      vendorId,
-      source: COMPANIES_HOUSE_SOURCE,
-      attribute: change.attribute,
-      previousValue: formatChangeValue(change.previousValue),
-      newValue: formatChangeValue(change.newValue),
-      severity: change.severity,
-      checkedAt,
-      dedupeKey: buildChangeDedupeKey(vendorId, COMPANIES_HOUSE_SOURCE, change),
-    }));
+    const alertRecords = buildActionableAlerts(persisted.events);
     const { inserted } = await store.insertAlerts(alertRecords);
     alertsCreated = inserted;
   }

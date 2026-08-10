@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildActionableAlerts,
   runCompaniesHouseCheck,
   type AlertRecord,
   type ChangeEventRecord,
@@ -22,6 +23,7 @@ function createFakeStore() {
   const changeEvents: ChangeEventRecord[] = [];
   const seenDedupeKeys = new Set<string>();
   const seenEventKeys = new Set<string>();
+  const eventIdsByKey = new Map<string, string>();
 
   const store: MonitoringStore = {
     async getTrustProfile(vendorId) {
@@ -43,10 +45,17 @@ function createFakeStore() {
       for (const record of records) {
         if (seenEventKeys.has(record.dedupeKey)) continue;
         seenEventKeys.add(record.dedupeKey);
+        eventIdsByKey.set(record.dedupeKey, `event-${eventIdsByKey.size + 1}`);
         changeEvents.push(record);
         inserted += 1;
       }
-      return { inserted };
+      return {
+        inserted,
+        events: records.map((record) => ({
+          ...record,
+          id: eventIdsByKey.get(record.dedupeKey)!,
+        })),
+      };
     },
     async insertAlerts(records) {
       let inserted = 0;
@@ -167,6 +176,8 @@ describe("runCompaniesHouseCheck", () => {
     });
     expect(alerts).toHaveLength(1);
     expect(alerts[0]).toMatchObject({
+      changeEventId: "event-1",
+      snapshotId: "snapshot-2",
       attribute: "company_status",
       severity: "critical",
       newValue: "dissolved",
@@ -174,7 +185,7 @@ describe("runCompaniesHouseCheck", () => {
   });
 
   it("creates separate events when multiple trusted attributes change", async () => {
-    const { store, changeEvents } = createFakeStore();
+    const { store, changeEvents, alerts } = createFakeStore();
     await runCompaniesHouseCheck(
       { vendorId: VENDOR, companyNumber: "00000006" },
       { fetchProfile: async () => okResult(), store },
@@ -192,6 +203,23 @@ describe("runCompaniesHouseCheck", () => {
     expect(outcome.status).toBe("ok");
     if (outcome.status === "ok") expect(outcome.eventsCreated).toBe(2);
     expect(changeEvents.map((event) => event.attribute)).toEqual(["company_name", "sic_codes"]);
+    expect(alerts).toHaveLength(2);
+    expect(alerts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          changeEventId: "event-1",
+          snapshotId: "snapshot-2",
+          attribute: "company_name",
+          severity: "attention",
+        }),
+        expect.objectContaining({
+          changeEventId: "event-2",
+          snapshotId: "snapshot-2",
+          attribute: "sic_codes",
+          severity: "attention",
+        }),
+      ]),
+    );
   });
 
   it("records a monitoring failure and writes no snapshot on API failure", async () => {
@@ -262,6 +290,25 @@ describe("runCompaniesHouseCheck", () => {
     if (retry.status === "ok") expect(retry.eventsCreated).toBe(0);
     expect(changeEvents).toHaveLength(1);
     expect(alerts).toHaveLength(1);
+  });
+
+  it("keeps informational events in history without creating alerts", () => {
+    const alerts = buildActionableAlerts([
+      {
+        id: "event-info",
+        vendorId: VENDOR,
+        snapshotId: "snapshot-info",
+        source: "companies_house",
+        attribute: "company_type",
+        previousValue: "ltd",
+        newValue: "plc",
+        severity: "info",
+        detectedAt: "2026-08-10T12:34:56.000Z",
+        dedupeKey: "info-key",
+      },
+    ]);
+
+    expect(alerts).toEqual([]);
   });
 });
 

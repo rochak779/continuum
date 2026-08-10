@@ -269,6 +269,7 @@ export type Database = {
       vendor_monitoring_alerts: {
         Row: {
           attribute_checked: string
+          change_event_id: string | null
           checked_at: string
           created_at: string
           dedupe_key: string
@@ -277,12 +278,14 @@ export type Database = {
           new_value: string | null
           previous_value: string | null
           severity: string
+          snapshot_id: string | null
           source: string
           status: string
           vendor_id: string
         }
         Insert: {
           attribute_checked: string
+          change_event_id?: string | null
           checked_at: string
           created_at?: string
           dedupe_key: string
@@ -291,12 +294,14 @@ export type Database = {
           new_value?: string | null
           previous_value?: string | null
           severity: string
+          snapshot_id?: string | null
           source?: string
           status?: string
           vendor_id: string
         }
         Update: {
           attribute_checked?: string
+          change_event_id?: string | null
           checked_at?: string
           created_at?: string
           dedupe_key?: string
@@ -305,6 +310,7 @@ export type Database = {
           new_value?: string | null
           previous_value?: string | null
           severity?: string
+          snapshot_id?: string | null
           source?: string
           status?: string
           vendor_id?: string

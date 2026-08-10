@@ -14,6 +14,7 @@ import {
   type ChangeEventRecord,
   type FailureRecord,
   type MonitoringStore,
+  type PersistedChangeEvent,
   type SnapshotRecord,
   type TrustProfileAttributeRecord,
 } from "./monitor";
@@ -90,9 +91,11 @@ export function createSupabaseMonitoringStore(db: AdminClient): MonitoringStore 
       if (error) throw error;
     },
 
-    async insertChangeEvents(records: ChangeEventRecord[]): Promise<{ inserted: number }> {
-      if (records.length === 0) return { inserted: 0 };
-      const { data, error } = await db
+    async insertChangeEvents(
+      records: ChangeEventRecord[],
+    ): Promise<{ inserted: number; events: PersistedChangeEvent[] }> {
+      if (records.length === 0) return { inserted: 0, events: [] };
+      const { data: insertedRows, error } = await db
         .from("vendor_change_events")
         .upsert(
           records.map((record) => ({
@@ -110,7 +113,22 @@ export function createSupabaseMonitoringStore(db: AdminClient): MonitoringStore 
         )
         .select("id");
       if (error) throw error;
-      return { inserted: data?.length ?? 0 };
+      const { data: persistedRows, error: selectError } = await db
+        .from("vendor_change_events")
+        .select("id,dedupe_key")
+        .in(
+          "dedupe_key",
+          records.map((record) => record.dedupeKey),
+        );
+      if (selectError) throw selectError;
+      const idsByKey = new Map(persistedRows.map((row) => [row.dedupe_key, row.id]));
+      return {
+        inserted: insertedRows?.length ?? 0,
+        events: records.flatMap((record) => {
+          const id = idsByKey.get(record.dedupeKey);
+          return id ? [{ ...record, id }] : [];
+        }),
+      };
     },
 
     async insertAlerts(records: AlertRecord[]): Promise<{ inserted: number }> {
@@ -122,6 +140,8 @@ export function createSupabaseMonitoringStore(db: AdminClient): MonitoringStore 
         .upsert(
           records.map((r) => ({
             vendor_id: r.vendorId,
+            change_event_id: r.changeEventId,
+            snapshot_id: r.snapshotId,
             source: r.source,
             attribute_checked: r.attribute,
             previous_value: r.previousValue,
@@ -167,7 +187,7 @@ export function createNullStore(): MonitoringStore {
       /* dry run: nothing persisted */
     },
     async insertChangeEvents() {
-      return { inserted: 0 };
+      return { inserted: 0, events: [] };
     },
     async insertAlerts() {
       return { inserted: 0 };
