@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "ch:check": "bun run scripts/check-companies-house.ts",
+    "monitor:check": "bun run scripts/check-vendor-monitoring.ts",
     "verify:tenant-isolation": "bash scripts/verify-tenant-isolation.sh"
   },
   "dependencies": {
