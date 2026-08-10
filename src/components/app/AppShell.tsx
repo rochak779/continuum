@@ -18,10 +18,10 @@ import { AssistantWidget } from "@/components/app/AssistantWidget";
 const navItems = [
   { label: "Dashboard", icon: LayoutGrid, to: "/dashboard" as const },
   { label: "Vendors", icon: Users, to: "/vendors" as const },
+  { label: "Alerts", icon: Bell, to: "/alerts" as const },
 ];
 
 const staticItems = [
-  { label: "Alerts", icon: Bell },
   { label: "Monitoring", icon: Eye },
   { label: "Reports", icon: BarChart3 },
   { label: "Settings", icon: Settings },

@@ -15,6 +15,8 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedAlertsIndexRouteImport } from './routes/_authenticated/alerts/index'
+import { Route as AuthenticatedAlertsAlertIdRouteImport } from './routes/_authenticated/alerts/$alertId'
 import { Route as AuthenticatedVendorsIndexRouteImport } from './routes/_authenticated/vendors/index'
 import { Route as AuthenticatedVendorsNewRouteImport } from './routes/_authenticated/vendors/new'
 import { Route as AuthenticatedVendorsReviewRouteImport } from './routes/_authenticated/vendors/review'
@@ -49,6 +51,18 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAlertsIndexRoute =
+  AuthenticatedAlertsIndexRouteImport.update({
+    id: '/alerts/',
+    path: '/alerts/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAlertsAlertIdRoute =
+  AuthenticatedAlertsAlertIdRouteImport.update({
+    id: '/alerts/$alertId',
+    path: '/alerts/$alertId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedVendorsIndexRoute =
   AuthenticatedVendorsIndexRouteImport.update({
     id: '/vendors/',
@@ -79,9 +93,11 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/alerts/$alertId': typeof AuthenticatedAlertsAlertIdRoute
   '/vendors/new': typeof AuthenticatedVendorsNewRoute
   '/vendors/review': typeof AuthenticatedVendorsReviewRoute
   '/vendors/upload': typeof AuthenticatedVendorsUploadRoute
+  '/alerts/': typeof AuthenticatedAlertsIndexRoute
   '/vendors/': typeof AuthenticatedVendorsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -90,9 +106,11 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/alerts/$alertId': typeof AuthenticatedAlertsAlertIdRoute
   '/vendors/new': typeof AuthenticatedVendorsNewRoute
   '/vendors/review': typeof AuthenticatedVendorsReviewRoute
   '/vendors/upload': typeof AuthenticatedVendorsUploadRoute
+  '/alerts': typeof AuthenticatedAlertsIndexRoute
   '/vendors': typeof AuthenticatedVendorsIndexRoute
 }
 export interface FileRoutesById {
@@ -103,9 +121,11 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/alerts/$alertId': typeof AuthenticatedAlertsAlertIdRoute
   '/_authenticated/vendors/new': typeof AuthenticatedVendorsNewRoute
   '/_authenticated/vendors/review': typeof AuthenticatedVendorsReviewRoute
   '/_authenticated/vendors/upload': typeof AuthenticatedVendorsUploadRoute
+  '/_authenticated/alerts/': typeof AuthenticatedAlertsIndexRoute
   '/_authenticated/vendors/': typeof AuthenticatedVendorsIndexRoute
 }
 export interface FileRouteTypes {
@@ -116,9 +136,11 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/dashboard'
+    | '/alerts/$alertId'
     | '/vendors/new'
     | '/vendors/review'
     | '/vendors/upload'
+    | '/alerts/'
     | '/vendors/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -127,9 +149,11 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/dashboard'
+    | '/alerts/$alertId'
     | '/vendors/new'
     | '/vendors/review'
     | '/vendors/upload'
+    | '/alerts'
     | '/vendors'
   id:
     | '__root__'
@@ -139,9 +163,11 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/_authenticated/dashboard'
+    | '/_authenticated/alerts/$alertId'
     | '/_authenticated/vendors/new'
     | '/_authenticated/vendors/review'
     | '/_authenticated/vendors/upload'
+    | '/_authenticated/alerts/'
     | '/_authenticated/vendors/'
   fileRoutesById: FileRoutesById
 }
@@ -197,6 +223,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/alerts/': {
+      id: '/_authenticated/alerts/'
+      path: '/alerts'
+      fullPath: '/alerts/'
+      preLoaderRoute: typeof AuthenticatedAlertsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/alerts/$alertId': {
+      id: '/_authenticated/alerts/$alertId'
+      path: '/alerts/$alertId'
+      fullPath: '/alerts/$alertId'
+      preLoaderRoute: typeof AuthenticatedAlertsAlertIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/vendors/': {
       id: '/_authenticated/vendors/'
       path: '/vendors'
@@ -230,17 +270,21 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedAlertsAlertIdRoute: typeof AuthenticatedAlertsAlertIdRoute
   AuthenticatedVendorsNewRoute: typeof AuthenticatedVendorsNewRoute
   AuthenticatedVendorsReviewRoute: typeof AuthenticatedVendorsReviewRoute
   AuthenticatedVendorsUploadRoute: typeof AuthenticatedVendorsUploadRoute
+  AuthenticatedAlertsIndexRoute: typeof AuthenticatedAlertsIndexRoute
   AuthenticatedVendorsIndexRoute: typeof AuthenticatedVendorsIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedAlertsAlertIdRoute: AuthenticatedAlertsAlertIdRoute,
   AuthenticatedVendorsNewRoute: AuthenticatedVendorsNewRoute,
   AuthenticatedVendorsReviewRoute: AuthenticatedVendorsReviewRoute,
   AuthenticatedVendorsUploadRoute: AuthenticatedVendorsUploadRoute,
+  AuthenticatedAlertsIndexRoute: AuthenticatedAlertsIndexRoute,
   AuthenticatedVendorsIndexRoute: AuthenticatedVendorsIndexRoute,
 }
 
