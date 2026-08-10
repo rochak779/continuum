@@ -30,12 +30,10 @@ import { StepRail } from "@/components/signup/StepRail";
 import {
   COMPANY_SIZES,
   COUNTRIES,
-  CURRENCIES,
   DESIGNATIONS,
   DIAL_CODES,
   INDUSTRIES,
   ROLES,
-  TIME_ZONES,
   detailsSchema,
   emptyDetails,
   emptyOrganization,
@@ -160,8 +158,6 @@ function SignupPage() {
             country: orgParsed.data.country,
             industry: orgParsed.data.industry,
             company_size: orgParsed.data.companySize,
-            primary_currency: orgParsed.data.primaryCurrency,
-            time_zone: orgParsed.data.timeZone,
             phone,
             designation: detailsParsed.data.designation,
             team_invites: filledInvites.map((i) => ({
