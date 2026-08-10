@@ -81,21 +81,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="p-3">
           <button
             type="button"
-            className="flex w-full items-center gap-3 rounded-xl border border-sidebar-border px-3 py-3 text-left transition-colors hover:bg-sidebar-accent"
-          >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-accent">
-              <ShieldCheck className="h-4 w-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[11px] text-sidebar-foreground/60">Organization</span>
-              <span className="block truncate text-sm font-semibold">Acme Corp</span>
-            </span>
-            <ChevronRight className="h-4 w-4 text-sidebar-foreground/60" />
-          </button>
-          <button
-            type="button"
             onClick={handleSignOut}
-            className="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent"
           >
             <LogOut className="h-[18px] w-[18px]" />
             Sign out
