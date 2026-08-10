@@ -79,7 +79,7 @@ function VendorsPage() {
         )}
       </div>
 
-      <AddVendorModal isOpen={addOpen} onClose={() => setAddOpen(false)} hideUpload />
+      <AddVendorModal isOpen={addOpen} onClose={() => setAddOpen(false)} />
     </AppShell>
   );
 }
