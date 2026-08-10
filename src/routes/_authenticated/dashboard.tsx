@@ -104,7 +104,6 @@ function initials(name: string) {
 }
 
 function DashboardPage() {
-  const navigate = useNavigate();
   const [dismissed, setDismissed] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
 
