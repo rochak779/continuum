@@ -45,8 +45,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-3 border-b border-sidebar-border px-6 py-6">
           <ShieldCheck className="h-7 w-7 text-primary-foreground" strokeWidth={2.2} />
           <div>
-            <p className="text-lg font-bold leading-tight">Enterprise Portal</p>
-            <p className="text-xs text-sidebar-foreground/70">Vendor Management</p>
+            <p className="text-lg font-bold leading-tight">Continuum</p>
+            <p className="text-xs text-sidebar-foreground/70">{"\n"}</p>
           </div>
         </div>
 
