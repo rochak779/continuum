@@ -245,6 +245,8 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
     />
   );
 
+  const anyExtracting = review.some((item) => item.extracting);
+
   const reviewPanel = review.length > 0 && (
     <div className="space-y-3 border-t border-border pt-3">
       <p className="text-xs font-semibold text-muted-foreground">Review before saving</p>
@@ -271,7 +273,7 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
         </div>
       ))}
       <div className="flex gap-2">
-        <Button type="button" size="sm" disabled={saving} onClick={handleSaveReview}>
+        <Button type="button" size="sm" disabled={saving || anyExtracting} onClick={handleSaveReview}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Save {review.length} document{review.length === 1 ? "" : "s"}
         </Button>
