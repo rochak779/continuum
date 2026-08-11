@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildDashboardSummary,
+  buildUpcomingExpiries,
   describeFailure,
   latestFailureByVendor,
   normalizeAlertSeverity,
@@ -99,5 +100,73 @@ describe("normalizeAlertSeverity", () => {
 
   it("coerces an unknown severity to attention", () => {
     expect(normalizeAlertSeverity("warning")).toBe("attention");
+  });
+});
+
+describe("buildUpcomingExpiries", () => {
+  const vendorNames = new Map([
+    ["v1", "Acme Insurance"],
+    ["v2", "Beta Logistics"],
+  ]);
+
+  it("joins vendor names and prefers item_label over file_name", () => {
+    const result = buildUpcomingExpiries(
+      [
+        {
+          id: "d1",
+          vendor_id: "v1",
+          item_label: "Insurance Certificate",
+          file_name: "cert.pdf",
+          expiry_date: "2027-01-15",
+        },
+      ],
+      vendorNames,
+    );
+    expect(result).toEqual([
+      { id: "d1", companyName: "Acme Insurance", item: "Insurance Certificate", expiryDate: "2027-01-15" },
+    ]);
+  });
+
+  it("falls back to file_name when item_label is null", () => {
+    const result = buildUpcomingExpiries(
+      [{ id: "d1", vendor_id: "v1", item_label: null, file_name: "cert.pdf", expiry_date: "2027-01-15" }],
+      vendorNames,
+    );
+    expect(result[0]?.item).toBe("cert.pdf");
+  });
+
+  it("falls back to 'Unknown vendor' when the vendor id isn't in the map", () => {
+    const result = buildUpcomingExpiries(
+      [{ id: "d1", vendor_id: "missing", item_label: "X", file_name: "x.pdf", expiry_date: "2027-01-15" }],
+      vendorNames,
+    );
+    expect(result[0]?.companyName).toBe("Unknown vendor");
+  });
+
+  it("excludes documents with a null expiry_date", () => {
+    const result = buildUpcomingExpiries(
+      [{ id: "d1", vendor_id: "v1", item_label: "X", file_name: "x.pdf", expiry_date: null }],
+      vendorNames,
+    );
+    expect(result).toEqual([]);
+  });
+
+  it("excludes already-past expiry dates", () => {
+    const result = buildUpcomingExpiries(
+      [{ id: "d1", vendor_id: "v1", item_label: "X", file_name: "x.pdf", expiry_date: "2000-01-01" }],
+      vendorNames,
+    );
+    expect(result).toEqual([]);
+  });
+
+  it("sorts by soonest expiry first, defensively re-sorting unsorted input", () => {
+    const result = buildUpcomingExpiries(
+      [
+        { id: "later", vendor_id: "v1", item_label: "Later", file_name: "x.pdf", expiry_date: "2030-01-01" },
+        { id: "sooner", vendor_id: "v2", item_label: "Sooner", file_name: "y.pdf", expiry_date: "2028-01-01" },
+      ],
+      vendorNames,
+    );
+    expect(result.map((r) => r.id)).toEqual(["sooner", "later"]);
   });
 });

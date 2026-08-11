@@ -123,3 +123,42 @@ export function buildDashboardSummary(
     healthCounts,
   };
 }
+
+export interface DashboardDocument {
+  id: string;
+  vendor_id: string;
+  item_label: string | null;
+  file_name: string;
+  expiry_date: string | null;
+}
+
+export interface UpcomingExpiry {
+  id: string;
+  companyName: string;
+  item: string;
+  expiryDate: string;
+}
+
+/**
+ * Builds the "Upcoming Reviews & Expiries" dashboard rows: joins each
+ * document to its vendor's company name, prefers the user-set item_label
+ * over the raw file_name, and excludes documents with no expiry date or an
+ * already-past one (defensive — callers should already filter server-side,
+ * but this shouldn't assume pre-filtered/pre-sorted input).
+ */
+export function buildUpcomingExpiries(
+  documents: readonly DashboardDocument[],
+  vendorNames: ReadonlyMap<string, string>,
+): UpcomingExpiry[] {
+  const today = new Date().toISOString().slice(0, 10);
+  return documents
+    .filter((doc): doc is DashboardDocument & { expiry_date: string } => Boolean(doc.expiry_date))
+    .filter((doc) => doc.expiry_date >= today)
+    .map((doc) => ({
+      id: doc.id,
+      companyName: vendorNames.get(doc.vendor_id) ?? "Unknown vendor",
+      item: doc.item_label ?? doc.file_name,
+      expiryDate: doc.expiry_date,
+    }))
+    .sort((a, b) => a.expiryDate.localeCompare(b.expiryDate));
+}
