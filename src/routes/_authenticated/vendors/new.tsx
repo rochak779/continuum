@@ -1,8 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Mail, Hash, User } from "lucide-react";
-import { z } from "zod";
+import { ArrowLeft, Plus, Mail, Hash, Building2, User } from "lucide-react";
 
 import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { getErrorMessage } from "@/lib/errors";
 import { RISK_LEVELS, VENDOR_CATEGORIES, VENDOR_COUNTRIES } from "@/lib/vendor-options";
+import { vendorFieldsSchema } from "@/lib/vendor-validation";
 
 export const Route = createFileRoute("/_authenticated/vendors/new")({
   head: () => ({
@@ -39,21 +40,12 @@ export const Route = createFileRoute("/_authenticated/vendors/new")({
   component: AddVendorManuallyPage,
 });
 
-const vendorSchema = z.object({
-  company_name: z.string().trim().min(2, "Company name is required").max(120),
-  country: z.string().min(1, "Select a country"),
-  category: z.string().min(1, "Select a category"),
-  internal_owner: z.string().trim().min(2, "Internal vendor owner is required").max(120),
-  risk_level: z.string().min(1, "Select a risk level"),
-  email: z.string().trim().email("Enter a valid vendor email").max(255),
-  internal_vendor_id: z.string().trim().max(60),
-});
-
 function AddVendorManuallyPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
     company_name: "",
+    companies_house_number: "",
     country: "",
     category: "",
     internal_owner: "",
@@ -69,7 +61,7 @@ function AddVendorManuallyPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    const parsed = vendorSchema.safeParse(form);
+    const parsed = vendorFieldsSchema.safeParse(form);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Please check the form");
       return;
@@ -86,7 +78,8 @@ function AddVendorManuallyPage() {
       await queryClient.invalidateQueries({ queryKey: ["vendors"] });
       navigate({ to: "/vendors" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add the vendor");
+      console.error("Failed to create vendor:", err);
+      setError(getErrorMessage(err, "Could not add the vendor"));
     } finally {
       setSaving(false);
     }
@@ -124,6 +117,25 @@ function AddVendorManuallyPage() {
             />
           </div>
 
+          <div className="mt-6 space-y-2">
+            <Label htmlFor="ch-number">
+              Companies House Number <span className="text-destructive">*</span>
+            </Label>
+            <div className="relative">
+              <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="ch-number"
+                placeholder="e.g. 09876543"
+                value={form.companies_house_number}
+                onChange={(e) => set({ companies_house_number: e.target.value })}
+                className="h-12 bg-surface-container-low pl-10"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Required to enable Companies House monitoring for this vendor.
+            </p>
+          </div>
+
           <div className="mt-6 grid gap-6 md:grid-cols-2">
             <SelectField
               label="Country of Registration"
@@ -131,6 +143,7 @@ function AddVendorManuallyPage() {
               options={VENDOR_COUNTRIES}
               value={form.country}
               onChange={(v) => set({ country: v })}
+              optional
             />
             <SelectField
               label="Vendor Category"
@@ -138,17 +151,19 @@ function AddVendorManuallyPage() {
               options={VENDOR_CATEGORIES}
               value={form.category}
               onChange={(v) => set({ category: v })}
+              optional
             />
 
             <div className="space-y-2">
               <Label htmlFor="owner">
-                Internal Vendor Owner <span className="text-destructive">*</span>
+                Internal Vendor Owner{" "}
+                <span className="font-normal text-muted-foreground">(Optional)</span>
               </Label>
               <div className="relative">
                 <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="owner"
-                  placeholder="Search employees..."
+                  placeholder="e.g. Jane Doe"
                   value={form.internal_owner}
                   onChange={(e) => set({ internal_owner: e.target.value })}
                   className="h-12 bg-surface-container-low pl-10"
@@ -162,6 +177,7 @@ function AddVendorManuallyPage() {
               options={RISK_LEVELS}
               value={form.risk_level}
               onChange={(v) => set({ risk_level: v })}
+              optional
             />
           </div>
 
@@ -172,7 +188,8 @@ function AddVendorManuallyPage() {
           <div className="mt-6 grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="email">
-                Vendor Email <span className="text-destructive">*</span>
+                Vendor Email{" "}
+                <span className="font-normal text-muted-foreground">(Optional)</span>
               </Label>
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -227,17 +244,24 @@ function SelectField({
   options,
   value,
   onChange,
+  optional,
 }: {
   label: string;
   placeholder: string;
   options: string[];
   value: string;
   onChange: (value: string) => void;
+  optional?: boolean;
 }) {
   return (
     <div className="space-y-2">
       <Label>
-        {label} <span className="text-destructive">*</span>
+        {label}{" "}
+        {optional ? (
+          <span className="font-normal text-muted-foreground">(Optional)</span>
+        ) : (
+          <span className="text-destructive">*</span>
+        )}
       </Label>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="h-12 w-full bg-surface-container-low">

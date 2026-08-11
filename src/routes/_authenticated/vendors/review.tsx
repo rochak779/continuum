@@ -1,14 +1,30 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Building2, ShieldCheck, Pencil, Mail, MapPin } from "lucide-react";
+import { ArrowLeft, ArrowRight, Trash2 } from "lucide-react";
 
 import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { clearVendorDraft, readVendorDraft, type VendorDraft } from "@/lib/vendor-options";
+import { getErrorMessage } from "@/lib/errors";
+import {
+  RISK_LEVELS,
+  VENDOR_CATEGORIES,
+  VENDOR_COUNTRIES,
+  clearVendorDraftRows,
+  readVendorDraftRows,
+  type VendorDraftRow,
+} from "@/lib/vendor-options";
+import { validateVendorRow, type VendorFieldName } from "@/lib/vendor-validation";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/vendors/review")({
   head: () => ({
@@ -16,13 +32,12 @@ export const Route = createFileRoute("/_authenticated/vendors/review")({
       { title: "Review Vendor Details | Continuum" },
       {
         name: "description",
-        content:
-          "Verify the vendor information extracted from your uploaded file before creating the vendor profile.",
+        content: "Verify vendor information parsed from your upload before creating profiles.",
       },
       { property: "og:title", content: "Review Vendor Details | Continuum" },
       {
         property: "og:description",
-        content: "Verify extracted vendor information before creating the profile.",
+        content: "Verify parsed vendor information before creating profiles.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -31,50 +46,70 @@ export const Route = createFileRoute("/_authenticated/vendors/review")({
   component: ReviewVendorPage,
 });
 
+const TEXT_FIELDS: { key: keyof VendorDraftRow; label: string; placeholder?: string }[] = [
+  { key: "company_name", label: "Company name" },
+  { key: "companies_house_number", label: "Companies House number", placeholder: "e.g. 09876543" },
+  { key: "internal_owner", label: "Internal owner" },
+  { key: "email", label: "Email" },
+  { key: "internal_vendor_id", label: "Internal vendor ID" },
+];
+
 function ReviewVendorPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [draft, setDraft] = useState<VendorDraft | null>(null);
-  const [editEntity, setEditEntity] = useState(false);
-  const [editInternal, setEditInternal] = useState(false);
+  const [rows, setRows] = useState<VendorDraftRow[] | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = readVendorDraft();
+    const stored = readVendorDraftRows();
     if (!stored) navigate({ to: "/vendors/upload", replace: true });
-    else setDraft(stored);
+    else setRows(stored);
   }, [navigate]);
 
-  if (!draft) return null;
+  const validations = useMemo(() => {
+    if (!rows) return [];
+    return rows.map((row) => validateVendorRow(row));
+  }, [rows]);
 
-  const update = (patch: Partial<VendorDraft>) => setDraft({ ...draft, ...patch });
+  const validCount = validations.filter((v) => v.valid).length;
+  const allValid = rows !== null && rows.length > 0 && validCount === rows.length;
+
+  if (!rows) return null;
+
+  function updateRow(id: string, patch: Partial<VendorDraftRow>) {
+    setRows((current) => (current ?? []).map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }
+
+  function removeRow(id: string) {
+    setRows((current) => (current ?? []).filter((r) => r.id !== id));
+  }
 
   async function handleCreate() {
-    if (!draft) return;
+    if (!rows || !allValid) return;
     setError(null);
     setSaving(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData.user?.id;
       if (!uid) throw new Error("You need to be signed in");
-      const { error: insertError } = await supabase.from("vendors").insert({
-        owner_id: uid,
-        company_name: draft.company_name,
-        country: draft.country,
-        category: draft.category,
-        internal_owner: draft.internal_owner,
-        risk_level: draft.risk_level,
-        email: draft.email,
-        internal_vendor_id: draft.internal_vendor_id,
-        source: draft.source,
+
+      const payload = rows.map((row) => {
+        const validated = validateVendorRow(row).data;
+        // allValid guarantees this, but guard anyway rather than insert nulls.
+        if (!validated) throw new Error(`"${row.company_name}" failed validation`);
+        return { ...validated, owner_id: uid, source: row.source || "file" };
       });
+
+      const { error: insertError } = await supabase.from("vendors").insert(payload);
       if (insertError) throw insertError;
-      clearVendorDraft();
+
+      clearVendorDraftRows();
       await queryClient.invalidateQueries({ queryKey: ["vendors"] });
       navigate({ to: "/vendors" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create the vendor profile");
+      console.error("Failed to create vendor profiles:", err);
+      setError(getErrorMessage(err, "Could not create the vendor profiles"));
     } finally {
       setSaving(false);
     }
@@ -82,7 +117,7 @@ function ReviewVendorPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1200px]">
+      <div className="mx-auto max-w-[1400px]">
         <button
           type="button"
           onClick={() => navigate({ to: "/vendors/upload" })}
@@ -94,107 +129,95 @@ function ReviewVendorPage() {
           Review Vendor Details
         </h1>
         <p className="mt-2 max-w-2xl text-muted-foreground">
-          Please verify the information extracted from your uploaded file before proceeding to
-          create the official vendor profile in the system.
+          Fix anything flagged below. Every row must be valid — including a Companies House
+          number, which is what turns on monitoring — before these vendors can be created.
         </p>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-          <section className="rounded-2xl border border-border bg-card p-7 shadow-card">
-            <header className="flex items-center gap-3 border-b border-border pb-4">
-              <Building2 className="h-6 w-6 text-primary" />
-              <h2 className="text-xl font-bold text-foreground">Entity Information</h2>
-              <button
-                type="button"
-                onClick={() => setEditEntity((v) => !v)}
-                className="ml-auto flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-              >
-                <Pencil className="h-4 w-4" /> {editEntity ? "Done" : "Edit"}
-              </button>
-            </header>
-
-            {editEntity ? (
-              <div className="mt-6 grid gap-5 sm:grid-cols-2">
-                <Field label="Company name" value={draft.company_name} onChange={(v) => update({ company_name: v })} />
-                <Field label="Vendor category" value={draft.category} onChange={(v) => update({ category: v })} />
-                <Field label="Country of registration" value={draft.country} onChange={(v) => update({ country: v })} />
-                <Field label="Contact information" value={draft.email} onChange={(v) => update({ email: v })} />
-              </div>
-            ) : (
-              <div className="mt-6 grid gap-6 sm:grid-cols-2">
-                <ReadField label="Company name" value={draft.company_name || "—"} />
-                <ReadField
-                  label="Vendor category"
-                  value={draft.category || "—"}
-                  icon={<span className="h-2 w-2 rounded-full bg-primary" />}
-                />
-                <ReadField
-                  label="Country of registration"
-                  value={draft.country || "—"}
-                  icon={<MapPin className="h-4 w-4 text-muted-foreground" />}
-                />
-                <ReadField
-                  label="Contact information"
-                  value={draft.email || "—"}
-                  icon={<Mail className="h-4 w-4 text-muted-foreground" />}
-                />
-              </div>
-            )}
-          </section>
-
-          <section className="rounded-2xl border border-border bg-card p-7 shadow-card">
-            <header className="flex items-center gap-3 border-b border-border pb-4">
-              <ShieldCheck className="h-6 w-6 text-primary" />
-              <h2 className="text-xl font-bold text-foreground">Internal Setup</h2>
-              <button
-                type="button"
-                onClick={() => setEditInternal((v) => !v)}
-                className="ml-auto text-primary hover:underline"
-                aria-label="Edit internal setup"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-            </header>
-
-            <div className="mt-6 space-y-5">
-              {editInternal ? (
-                <>
-                  <Field label="Internal vendor ID" value={draft.internal_vendor_id} onChange={(v) => update({ internal_vendor_id: v })} />
-                  <Field label="Internal vendor owner" value={draft.internal_owner} onChange={(v) => update({ internal_owner: v })} />
-                  <Field label="Initial risk assessment" value={draft.risk_level} onChange={(v) => update({ risk_level: v })} />
-                </>
-              ) : (
-                <>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Internal vendor ID
-                    </p>
-                    <p className="mt-2 rounded-lg bg-surface-container-low px-4 py-3 font-mono text-sm text-foreground">
-                      {draft.internal_vendor_id || "—"}
-                    </p>
-                  </div>
-                  <ReadField label="Internal vendor owner" value={draft.internal_owner || "—"} />
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Initial risk assessment
-                    </p>
-                    <span className="mt-2 inline-flex rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-foreground">
-                      {draft.risk_level || "—"}
-                    </span>
-                  </div>
-                </>
-              )}
-            </div>
-          </section>
+        <div className="mt-6 rounded-2xl border border-border bg-card p-4 shadow-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {TEXT_FIELDS.map((f) => (
+                  <TableHead key={f.key}>{f.label}</TableHead>
+                ))}
+                <TableHead>Country</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Risk level</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row, i) => {
+                const fieldErrors = validations[i]?.fieldErrors ?? {};
+                return (
+                  <TableRow key={row.id}>
+                    {TEXT_FIELDS.map((f) => (
+                      <TableCell key={f.key} className="min-w-[160px] max-w-[280px] align-top">
+                        <WrappingField
+                          value={row[f.key]}
+                          placeholder={f.placeholder}
+                          error={fieldErrors[f.key as VendorFieldName]}
+                          onChange={(v) => updateRow(row.id, { [f.key]: v })}
+                        />
+                      </TableCell>
+                    ))}
+                    <SelectCell
+                      value={row.country}
+                      options={VENDOR_COUNTRIES}
+                      error={fieldErrors.country}
+                      onChange={(v) => updateRow(row.id, { country: v })}
+                    />
+                    <SelectCell
+                      value={row.category}
+                      options={VENDOR_CATEGORIES}
+                      error={fieldErrors.category}
+                      onChange={(v) => updateRow(row.id, { category: v })}
+                    />
+                    <SelectCell
+                      value={row.risk_level}
+                      options={RISK_LEVELS}
+                      error={fieldErrors.risk_level}
+                      onChange={(v) => updateRow(row.id, { risk_level: v })}
+                    />
+                    <TableCell className="align-top">
+                      <button
+                        type="button"
+                        aria-label="Remove row"
+                        onClick={() => removeRow(row.id)}
+                        className="text-muted-foreground transition-colors hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+          {rows.length === 0 && (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              All rows removed — go back and upload a file to try again.
+            </p>
+          )}
         </div>
 
-        {error && <p className="mt-6 text-sm font-medium text-destructive">{error}</p>}
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {validCount} of {rows.length} row{rows.length === 1 ? "" : "s"} valid
+          </p>
+        </div>
 
-        <div className="mt-8 flex justify-end gap-3 border-t border-border pt-6">
+        {error && <p className="mt-4 text-sm font-medium text-destructive">{error}</p>}
+
+        <div className="mt-6 flex justify-end gap-3 border-t border-border pt-6">
           <Button variant="outline" onClick={() => navigate({ to: "/dashboard" })}>
             Cancel
           </Button>
-          <Button onClick={handleCreate} disabled={saving || !draft.company_name} className="px-6">
-            Create Vendor Profile <ArrowRight className="ml-2 h-4 w-4" />
+          <Button onClick={handleCreate} disabled={saving || !allValid} className="px-6">
+            {saving
+              ? "Creating…"
+              : `Create ${rows.length} Vendor${rows.length === 1 ? "" : "s"}`}{" "}
+            <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -202,39 +225,78 @@ function ReviewVendorPage() {
   );
 }
 
-function ReadField({
-  label,
+/**
+ * An editable cell that wraps and grows to fit its content instead of
+ * truncating — a plain <input> can't wrap text, so long company names,
+ * emails, etc. need a textarea sized to fit what's actually in it.
+ */
+function WrappingField({
   value,
-  icon,
+  placeholder,
+  error,
+  onChange,
 }: {
-  label: string;
   value: string;
-  icon?: React.ReactNode;
+  placeholder?: string | undefined;
+  error?: string | undefined;
+  onChange: (value: string) => void;
 }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+
   return (
-    <div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-2 flex items-center gap-2 text-base text-foreground">
-        {icon}
-        {value}
-      </p>
-    </div>
+    <>
+      <textarea
+        ref={ref}
+        rows={1}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(
+          "block w-full resize-none overflow-hidden whitespace-pre-wrap break-words rounded-md border border-input bg-surface-container-low px-2 py-1.5 text-sm leading-snug placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          error && "border-destructive",
+        )}
+      />
+      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+    </>
   );
 }
 
-function Field({
-  label,
+function SelectCell({
   value,
+  options,
+  error,
   onChange,
 }: {
-  label: string;
   value: string;
+  options: string[];
+  error?: string | undefined;
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="space-y-2">
-      <Label className="text-sm font-medium">{label}</Label>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} className="h-11" />
-    </div>
+    <TableCell className="min-w-[160px] align-top">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(
+          "h-9 w-full rounded-md border border-input bg-surface-container-low px-2 text-sm",
+          error && "border-destructive",
+        )}
+      >
+        <option value="">Select…</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+    </TableCell>
   );
 }

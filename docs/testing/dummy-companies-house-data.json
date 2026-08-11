@@ -1,0 +1,92 @@
+[
+  {
+    "company_number": "63667688",
+    "company_name": "COMPANY 63667688 LIMITED",
+    "company_status": "active",
+    "jurisdiction": "england-wales",
+    "company_type": "ltd",
+    "registered_office_address": {
+      "address_line_1": "Old Admiralty Building",
+      "address_line_2": "Admiralty Place",
+      "country": "United Kingdom",
+      "locality": "London",
+      "postal_code": "SW1A 2DY",
+      "premises": "House Name"
+    },
+    "date_of_creation": "2025-08-11",
+    "auth_code": "354079",
+    "company_uri": "https://api-sandbox.company-information.service.gov.uk/company/63667688"
+  },
+  {
+    "company_number": "26751737",
+    "company_name": "COMPANY 26751737 LIMITED",
+    "company_status": "dissolved",
+    "jurisdiction": "england-wales",
+    "company_type": "ltd",
+    "registered_office_address": {
+      "address_line_1": "Old Admiralty Building",
+      "address_line_2": "Admiralty Place",
+      "country": "United Kingdom",
+      "locality": "London",
+      "postal_code": "SW1A 2DY",
+      "premises": "House Name"
+    },
+    "date_of_creation": "2025-08-11",
+    "auth_code": "877397",
+    "company_uri": "https://api-sandbox.company-information.service.gov.uk/company/26751737"
+  },
+  {
+    "company_number": "SC571202",
+    "company_name": "COMPANY SC571202 LIMITED",
+    "company_status": "liquidation",
+    "jurisdiction": "scotland",
+    "company_type": "ltd",
+    "registered_office_address": {
+      "address_line_1": "Queen Elizabeth House",
+      "address_line_2": "1 Sibbald Walk",
+      "country": "United Kingdom",
+      "locality": "Edinburgh",
+      "postal_code": "EH8 8FT",
+      "premises": "Building Name"
+    },
+    "date_of_creation": "2025-08-11",
+    "auth_code": "465416",
+    "company_uri": "https://api-sandbox.company-information.service.gov.uk/company/SC571202"
+  },
+  {
+    "company_number": "56914755",
+    "company_name": "COMPANY 56914755 LIMITED",
+    "company_status": "administration",
+    "jurisdiction": "england-wales",
+    "company_type": "ltd",
+    "registered_office_address": {
+      "address_line_1": "Old Admiralty Building",
+      "address_line_2": "Admiralty Place",
+      "country": "United Kingdom",
+      "locality": "London",
+      "postal_code": "SW1A 2DY",
+      "premises": "House Name"
+    },
+    "date_of_creation": "2025-08-11",
+    "auth_code": "884558",
+    "company_uri": "https://api-sandbox.company-information.service.gov.uk/company/56914755"
+  },
+  {
+    "company_number": "NI626509",
+    "company_name": "COMPANY NI626509 LIMITED",
+    "company_status": "voluntary-arrangement",
+    "jurisdiction": "northern-ireland",
+    "company_type": "ltd",
+    "registered_office_address": {
+      "address_line_1": "Erskine House",
+      "address_line_2": "20-32 Chichester Street",
+      "country": "United Kingdom",
+      "locality": "Belfast",
+      "postal_code": "BT1 4GF",
+      "premises": "Office Name"
+    },
+    "date_of_creation": "2025-08-11",
+    "auth_code": "487645",
+    "company_uri": "https://api-sandbox.company-information.service.gov.uk/company/NI626509"
+  }
+]

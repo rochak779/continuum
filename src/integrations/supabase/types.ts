@@ -12,8 +12,51 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
+      monitoring_scheduler_leases: {
+        Row: {
+          expires_at: string
+          lease_token: string
+          scheduler: string
+        }
+        Insert: {
+          expires_at: string
+          lease_token: string
+          scheduler: string
+        }
+        Update: {
+          expires_at?: string
+          lease_token?: string
+          scheduler?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           company_size: string | null
@@ -120,58 +163,22 @@ export type Database = {
           vendor_id?: string
           verified_at?: string
         }
-        Relationships: []
-      }
-      vendors: {
-        Row: {
-          category: string | null
-          company_name: string
-          companies_house_number: string | null
-          country: string | null
-          created_at: string
-          email: string | null
-          id: string
-          internal_owner: string | null
-          internal_vendor_id: string | null
-          monitoring_status: string
-          owner_id: string
-          risk_level: string | null
-          source: string
-          updated_at: string
-        }
-        Insert: {
-          category?: string | null
-          company_name: string
-          companies_house_number?: string | null
-          country?: string | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          internal_owner?: string | null
-          internal_vendor_id?: string | null
-          monitoring_status?: string
-          owner_id: string
-          risk_level?: string | null
-          source?: string
-          updated_at?: string
-        }
-        Update: {
-          category?: string | null
-          company_name?: string
-          companies_house_number?: string | null
-          country?: string | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          internal_owner?: string | null
-          internal_vendor_id?: string | null
-          monitoring_status?: string
-          owner_id?: string
-          risk_level?: string | null
-          source?: string
-          updated_at?: string
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "trust_profile_attributes_updated_from_change_event_id_fkey"
+            columns: ["updated_from_change_event_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_change_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trust_profile_attributes_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vendor_change_events: {
         Row: {
@@ -213,7 +220,22 @@ export type Database = {
           status?: string
           vendor_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vendor_change_events_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_company_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_change_events_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vendor_company_snapshots: {
         Row: {
@@ -273,7 +295,15 @@ export type Database = {
           source?: string
           vendor_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vendor_company_snapshots_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vendor_monitoring_alerts: {
         Row: {
@@ -333,7 +363,29 @@ export type Database = {
           status?: string
           vendor_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vendor_monitoring_alerts_change_event_id_fkey"
+            columns: ["change_event_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_change_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_monitoring_alerts_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_company_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_monitoring_alerts_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vendor_monitoring_config: {
         Row: {
@@ -366,7 +418,15 @@ export type Database = {
           updated_at?: string
           vendor_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vendor_monitoring_config_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vendor_monitoring_failures: {
         Row: {
@@ -399,7 +459,15 @@ export type Database = {
           source?: string
           vendor_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vendor_monitoring_failures_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vendor_monitoring_runs: {
         Row: {
@@ -437,6 +505,65 @@ export type Database = {
           status?: string
           trigger_type?: string
           vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_monitoring_runs_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendors: {
+        Row: {
+          category: string | null
+          companies_house_number: string | null
+          company_name: string
+          country: string | null
+          created_at: string
+          email: string | null
+          id: string
+          internal_owner: string | null
+          internal_vendor_id: string | null
+          monitoring_status: string
+          owner_id: string
+          risk_level: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          companies_house_number?: string | null
+          company_name: string
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          internal_owner?: string | null
+          internal_vendor_id?: string | null
+          monitoring_status?: string
+          owner_id: string
+          risk_level?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          companies_house_number?: string | null
+          company_name?: string
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          internal_owner?: string | null
+          internal_vendor_id?: string | null
+          monitoring_status?: string
+          owner_id?: string
+          risk_level?: string | null
+          source?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -585,6 +712,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

@@ -1,10 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import { ArrowLeft, UploadCloud } from "lucide-react";
+import { ArrowLeft, Download, UploadCloud } from "lucide-react";
 
 import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
-import { saveVendorDraft } from "@/lib/vendor-options";
+import { parseVendorCsv } from "@/lib/csv";
+import { saveVendorDraftRows, vendorCsvTemplate } from "@/lib/vendor-options";
 
 export const Route = createFileRoute("/_authenticated/vendors/upload")({
   head: () => ({
@@ -12,12 +13,12 @@ export const Route = createFileRoute("/_authenticated/vendors/upload")({
       { title: "Upload Vendor File | Continuum" },
       {
         name: "description",
-        content: "Upload a CSV, PDF or image file to import vendor records into Continuum.",
+        content: "Upload a CSV of vendor records to bulk-import them into Continuum.",
       },
       { property: "og:title", content: "Upload Vendor File | Continuum" },
       {
         property: "og:description",
-        content: "Import vendor records from a file into Continuum.",
+        content: "Bulk-import vendor records from a CSV file into Continuum.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -26,27 +27,60 @@ export const Route = createFileRoute("/_authenticated/vendors/upload")({
   component: UploadVendorFilePage,
 });
 
+function downloadTemplate() {
+  const blob = new Blob([vendorCsvTemplate()], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "continuum-vendor-import-template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function UploadVendorFilePage() {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [parsing, setParsing] = useState(false);
 
-  function handleContinue() {
+  function pickFile(candidate: File | null | undefined) {
+    setError(null);
+    if (!candidate) return;
+    if (!candidate.name.toLowerCase().endsWith(".csv")) {
+      setError("Only CSV files are supported right now.");
+      return;
+    }
+    setFile(candidate);
+  }
+
+  async function handleContinue() {
     if (!file) return;
-    const base = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
-    saveVendorDraft({
-      company_name: base ? base.replace(/\b\w/g, (c) => c.toUpperCase()) : "",
-      country: "",
-      category: "",
-      internal_owner: "",
-      risk_level: "Medium",
-      email: "",
-      internal_vendor_id: `V-${Math.floor(10000 + Math.random() * 89999)}`,
-      source: "file",
-      file_name: file.name,
-    });
-    navigate({ to: "/vendors/review" });
+    setError(null);
+    setParsing(true);
+    try {
+      const text = await file.text();
+      const { rows, missingRequiredColumns } = parseVendorCsv(text);
+      if (missingRequiredColumns.length > 0) {
+        setError(
+          `The CSV is missing required column(s): ${missingRequiredColumns
+            .map((c) => (c === "companies_house_number" ? "Companies House Number" : "Company Name"))
+            .join(", ")}. Download the template below to see the expected headers.`,
+        );
+        return;
+      }
+      if (rows.length === 0) {
+        setError("No vendor rows were found in that file.");
+        return;
+      }
+      saveVendorDraftRows(rows);
+      navigate({ to: "/vendors/review" });
+    } catch {
+      setError("Could not read that file. Make sure it's a valid CSV.");
+    } finally {
+      setParsing(false);
+    }
   }
 
   return (
@@ -67,6 +101,15 @@ function UploadVendorFilePage() {
         </div>
 
         <div className="mt-8 rounded-2xl border border-border bg-card p-8 shadow-card">
+          <div className="flex items-center justify-between gap-4 rounded-xl bg-surface-container-low px-5 py-4">
+            <p className="text-sm text-muted-foreground">
+              Not sure how to format your file? Download our template with the expected columns.
+            </p>
+            <Button type="button" variant="outline" onClick={downloadTemplate} className="shrink-0">
+              <Download className="mr-2 h-4 w-4" /> Download template
+            </Button>
+          </div>
+
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -76,11 +119,10 @@ function UploadVendorFilePage() {
             onDrop={(e) => {
               e.preventDefault();
               setDragging(false);
-              const dropped = e.dataTransfer.files?.[0];
-              if (dropped) setFile(dropped);
+              pickFile(e.dataTransfer.files?.[0]);
             }}
             onClick={() => inputRef.current?.click()}
-            className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-16 text-center transition-colors ${
+            className={`mt-6 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-16 text-center transition-colors ${
               dragging ? "border-primary bg-accent" : "border-outline-variant"
             }`}
           >
@@ -90,9 +132,7 @@ function UploadVendorFilePage() {
             <p className="mt-6 text-xl font-bold text-foreground">
               Drag and drop your file here, or click to browse
             </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Supported formats: PDF, CSV, and Images (JPG, PNG)
-            </p>
+            <p className="mt-2 text-sm text-muted-foreground">Supported format: CSV</p>
             <Button
               type="button"
               variant="outline"
@@ -110,15 +150,17 @@ function UploadVendorFilePage() {
             <input
               ref={inputRef}
               type="file"
-              accept=".pdf,.csv,.jpg,.jpeg,.png"
+              accept=".csv,text/csv"
               className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => pickFile(e.target.files?.[0])}
             />
           </div>
 
+          {error && <p className="mt-6 text-sm font-medium text-destructive">{error}</p>}
+
           <div className="mt-8 flex justify-end">
-            <Button disabled={!file} onClick={handleContinue} className="px-8">
-              Continue
+            <Button disabled={!file || parsing} onClick={handleContinue} className="px-8">
+              {parsing ? "Reading file…" : "Continue"}
             </Button>
           </div>
         </div>
