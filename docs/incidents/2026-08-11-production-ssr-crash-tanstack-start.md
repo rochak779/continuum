@@ -217,6 +217,41 @@ pass by the same "some structured response, not the crash" standard used
 throughout this doc, and it exercises the exact code path the incident
 happened in — stronger evidence than the page-GET checks alone.
 
+**Update — lockfile reproducibility fix, re-verified (2026-08-11, supersedes
+the deployment above):** the whole-branch code review that followed this
+verification found the committed lockfile wasn't actually reproducible from
+`package.json` — a fresh install resolved a different (and broken) `h3`
+version than the one the verified preview above had actually run. Commit
+`54e0f0a` fixed this: added `"overrides": { "h3": "2.0.1-rc.22" }` to
+`package.json`, regenerated the lockfile against that pin, and exact-pinned
+`@lovable.dev/vite-tanstack-config` (was a caret range). This touches the
+exact subsystem (h3/nitro) that caused the original incident, so per this
+doc's own rule ("local builds are not a valid test oracle, always validate
+via real preview deploy"), the full verification was repeated from scratch
+against a fresh preview built from `54e0f0a`:
+
+- **Branch/commit:** `fix/tanstack-nitro-upgrade` @ `54e0f0a01cc60a0378af351af557e7ce917dbdc9`
+- **Preview URL:** `https://continuum-f2r4j8myj-rochakag779-1476s-projects.vercel.app`
+- **Deployment ID:** `dpl_J1MiUWi6pN5BmdGwXU9CcLgabKPT`
+- `npm install` clean, no ERESOLVE. Remote Vercel build succeeded.
+- Page routes `/`, `/auth`, `/dashboard`, `/vendors` re-checked via `vercel curl`
+  — same results as before (correct titles/content, 0 occurrences of
+  `createCsrfMiddleware`, no 500s, auth-gated routes show the expected
+  client-side-auth-handoff shell).
+- Server-function IDs (`resolveAlertFn`, `extractDocumentFieldsFn`) are
+  content-hash-derived and unchanged (app code wasn't touched by the lockfile
+  fix), confirmed identical in the new build's server bundle. Re-hit both
+  `POST /_serverFn/<id>` endpoints directly on the new preview — both
+  returned the same structured `x-tss-serialized: true` / `$TSR/Error`
+  ("Seroval Error") response as before, no crash.
+
+Net result: the dependency-tree fix did not change behavior (as expected —
+it fixes lockfile reproducibility, not runtime code), and the crash remains
+confirmed absent on the now-reproducible lockfile. **This deployment
+(`dpl_J1MiUWi6pN5BmdGwXU9CcLgabKPT` @ `54e0f0a`) is the final verified
+state** for this incident; the earlier deployment/verification above is
+superseded by this one.
+
 **Not yet done:** this branch has not been merged to `main` or promoted to
 production. That is a separate decision for whoever owns this plan next.
 
