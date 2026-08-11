@@ -18,7 +18,7 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
 
   const queryKey = ["vendor-documents", vendorId];
 
-  const { data: documents, isLoading } = useQuery({
+  const { data: documents, isLoading, isError } = useQuery({
     queryKey,
     queryFn: async () => {
       const { data, error: fetchError } = await supabase
@@ -45,6 +45,7 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
       if (!uid) throw new Error("You need to be signed in");
 
       const rejected: string[] = [];
+      const failed: string[] = [];
       for (const file of Array.from(files)) {
         const validation = validateDocumentFile({ name: file.name, size: file.size });
         if (!validation.valid) {
@@ -55,7 +56,10 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
         const { error: uploadError } = await supabase.storage
           .from(BUCKET)
           .upload(storagePath, file, file.type ? { contentType: file.type } : {});
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          failed.push(file.name);
+          continue;
+        }
         const { error: insertError } = await supabase.from("vendor_documents").insert({
           vendor_id: vendorId,
           owner_id: uid,
@@ -65,11 +69,15 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
           content_type: file.type || null,
           uploaded_by: uid,
         });
-        if (insertError) throw insertError;
+        if (insertError) {
+          failed.push(file.name);
+          continue;
+        }
       }
-      if (rejected.length > 0) {
-        setError(`Skipped: ${rejected.join(", ")}`);
-      }
+      const messages: string[] = [];
+      if (rejected.length > 0) messages.push(`Skipped: ${rejected.join(", ")}`);
+      if (failed.length > 0) messages.push(`Failed to upload: ${failed.join(", ")}`);
+      if (messages.length > 0) setError(messages.join(" "));
       await queryClient.invalidateQueries({ queryKey });
     } catch (err) {
       console.error("Failed to upload vendor document:", err);
@@ -95,11 +103,11 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
   async function handleDelete(doc: VendorDocument) {
     setError(null);
     try {
-      const { error: removeError } = await supabase.storage.from(BUCKET).remove([doc.storage_path]);
-      if (removeError) throw removeError;
       const { error: deleteError } = await supabase.from("vendor_documents").delete().eq("id", doc.id);
       if (deleteError) throw deleteError;
       await queryClient.invalidateQueries({ queryKey });
+      const { error: removeError } = await supabase.storage.from(BUCKET).remove([doc.storage_path]);
+      if (removeError) throw removeError;
     } catch (err) {
       console.error("Failed to delete vendor document:", err);
       setError(getErrorMessage(err, "Could not delete the document"));
@@ -119,6 +127,10 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
 
   if (isLoading) {
     return <span className="text-muted-foreground">…</span>;
+  }
+
+  if (isError) {
+    return <span className="text-xs text-destructive">Could not load documents</span>;
   }
 
   if (list.length === 0) {
