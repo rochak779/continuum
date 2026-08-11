@@ -17,6 +17,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { getErrorMessage } from "@/lib/errors";
 import { RISK_LEVELS, VENDOR_CATEGORIES, VENDOR_COUNTRIES } from "@/lib/vendor-options";
+import { triggerInitialBaselineChecks } from "@/lib/vendor-monitoring";
 import { vendorFieldsSchema } from "@/lib/vendor-validation";
 
 export const Route = createFileRoute("/_authenticated/vendors/new")({
@@ -71,11 +72,13 @@ function AddVendorManuallyPage() {
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData.user?.id;
       if (!uid) throw new Error("You need to be signed in");
-      const { error: insertError } = await supabase
+      const { data: created, error: insertError } = await supabase
         .from("vendors")
-        .insert({ ...parsed.data, owner_id: uid, source: "manual" });
+        .insert({ ...parsed.data, owner_id: uid, source: "manual" })
+        .select("id, companies_house_number");
       if (insertError) throw insertError;
       await queryClient.invalidateQueries({ queryKey: ["vendors"] });
+      triggerInitialBaselineChecks(created ?? []);
       navigate({ to: "/vendors" });
     } catch (err) {
       console.error("Failed to create vendor:", err);

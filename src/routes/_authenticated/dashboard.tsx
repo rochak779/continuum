@@ -11,6 +11,7 @@ import {
   Search,
   SlidersHorizontal,
   MoreVertical,
+  RefreshCw,
 } from "lucide-react";
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
@@ -73,7 +74,7 @@ function DashboardPage() {
   const [dismissed, setDismissed] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
 
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["dashboard", "monitoring"],
     queryFn: async () => {
       const [vendorsResult, alertsResult, changesResult] = await Promise.all([
@@ -159,6 +160,15 @@ function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            aria-label="Refresh dashboard data"
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+            {isFetching ? "Refreshing…" : "Refresh"}
+          </Button>
           <Button
             onClick={() => {
               setDismissed(false);
