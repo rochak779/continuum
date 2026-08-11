@@ -5,8 +5,15 @@ import { Plus } from "lucide-react";
 
 import { AppShell } from "@/components/app/AppShell";
 import { AddVendorModal } from "@/components/app/AddVendorModal";
+import { VendorStatusBadge } from "@/components/app/VendorStatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import {
+  buildDashboardSummary,
+  describeFailure,
+  latestFailureByVendor,
+  normalizeAlertSeverity,
+} from "@/lib/dashboard-data";
 
 export const Route = createFileRoute("/_authenticated/vendors/")({
   head: () => ({
@@ -27,17 +34,45 @@ export const Route = createFileRoute("/_authenticated/vendors/")({
 
 function VendorsPage() {
   const [addOpen, setAddOpen] = useState(false);
-  const { data: vendors, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["vendors", "list"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vendors")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
+      const [vendorsResult, alertsResult, failuresResult] = await Promise.all([
+        supabase.from("vendors").select("*").order("created_at", { ascending: false }),
+        supabase
+          .from("vendor_monitoring_alerts")
+          .select("id, vendor_id, severity, status, attribute_checked, detected_at")
+          .neq("status", "resolved"),
+        supabase
+          .from("vendor_monitoring_failures")
+          .select("vendor_id, error_type, message, checked_at")
+          .order("checked_at", { ascending: false })
+          // Bounds the payload; append-only log can grow unbounded. A vendor's most
+          // recent failure could theoretically fall outside this window if the log
+          // grows very large, silently dropping its status tooltip — known limitation.
+          .limit(500),
+      ]);
+      if (vendorsResult.error) throw vendorsResult.error;
+      if (alertsResult.error) throw alertsResult.error;
+      if (failuresResult.error) throw failuresResult.error;
+      return {
+        vendors: vendorsResult.data,
+        alerts: alertsResult.data,
+        failures: failuresResult.data,
+      };
     },
   });
+
+  const vendors = data?.vendors ?? [];
+  const summary = buildDashboardSummary(
+    vendors,
+    (data?.alerts ?? []).map((alert) => ({ ...alert, severity: normalizeAlertSeverity(alert.severity) })),
+  );
+  const failureByVendor = latestFailureByVendor(
+    (data?.failures ?? []).filter((failure): failure is typeof failure & { vendor_id: string } =>
+      Boolean(failure.vendor_id),
+    ),
+  );
 
   return (
     <AppShell>
@@ -51,7 +86,7 @@ function VendorsPage() {
       <div className="mt-8 overflow-hidden rounded-2xl border border-border bg-card shadow-card">
         {isLoading ? (
           <p className="p-8 text-muted-foreground">Loading vendors…</p>
-        ) : !vendors?.length ? (
+        ) : !vendors.length ? (
           <p className="p-8 text-muted-foreground">No vendors yet. Add your first vendor.</p>
         ) : (
           <table className="w-full text-left text-sm">
@@ -62,6 +97,7 @@ function VendorsPage() {
                 <th className="px-6 py-4">Country</th>
                 <th className="px-6 py-4">Owner</th>
                 <th className="px-6 py-4">Risk</th>
+                <th className="px-6 py-4">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -72,6 +108,14 @@ function VendorsPage() {
                   <td className="px-6 py-4 text-muted-foreground">{v.country}</td>
                   <td className="px-6 py-4 text-muted-foreground">{v.internal_owner}</td>
                   <td className="px-6 py-4 text-muted-foreground">{v.risk_level}</td>
+                  <td className="px-6 py-4">
+                    <VendorStatusBadge
+                      health={summary.healthByVendor.get(v.id) ?? "monitoring_issue"}
+                      failureReason={
+                        failureByVendor.has(v.id) ? describeFailure(failureByVendor.get(v.id)!) : undefined
+                      }
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
