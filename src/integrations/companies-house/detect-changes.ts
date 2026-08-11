@@ -87,6 +87,24 @@ export function detectChanges(
   return changes;
 }
 
+// A vendor's very first check has no prior snapshot to diff against, so
+// `detectChanges` can't run. But a vendor that's already dissolved/in
+// administration/etc. on day one is exactly the case a risk product must not
+// stay silent about — so the baseline check compares company_status against
+// an implicit "active" starting point instead of skipping severity entirely.
+export function detectBaselineChanges(snapshot: NormalisedCompanySnapshot): DetectedChange[] {
+  const status = snapshot.companyStatus;
+  if (status === null || status === undefined || equal("active", status)) return [];
+  return [
+    {
+      attribute: "company_status",
+      previousValue: "active",
+      newValue: status,
+      severity: statusSeverity(status),
+    },
+  ];
+}
+
 export function buildChangeDedupeKey(
   vendorId: string,
   source: string,

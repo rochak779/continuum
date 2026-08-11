@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildChangeDedupeKey, detectChanges, monitoredSnapshotValues } from "./detect-changes";
+import {
+  buildChangeDedupeKey,
+  detectBaselineChanges,
+  detectChanges,
+  monitoredSnapshotValues,
+} from "./detect-changes";
 import { normaliseCompanyProfile } from "./normalize";
 import type { CompaniesHouseRawProfile } from "./types";
 
@@ -70,5 +75,28 @@ describe("detectChanges", () => {
       severity: "attention",
     });
     expect(a).toBe(b);
+  });
+});
+
+describe("detectBaselineChanges", () => {
+  it("flags nothing for a vendor that's active on its first check", () => {
+    expect(detectBaselineChanges(snapshot({ company_status: "active" }))).toEqual([]);
+  });
+
+  it("flags a vendor that's already dissolved on its first check as critical", () => {
+    const changes = detectBaselineChanges(snapshot({ company_status: "dissolved" }));
+    expect(changes).toEqual([
+      {
+        attribute: "company_status",
+        previousValue: "active",
+        newValue: "dissolved",
+        severity: "critical",
+      },
+    ]);
+  });
+
+  it("flags a vendor that's already in administration on its first check as attention", () => {
+    const changes = detectBaselineChanges(snapshot({ company_status: "administration" }));
+    expect(changes[0]?.severity).toBe("attention");
   });
 });

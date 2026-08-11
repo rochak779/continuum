@@ -148,6 +148,42 @@ describe("runCompaniesHouseCheck", () => {
     );
   });
 
+  it("alerts immediately when a vendor is already dissolved on its first check", async () => {
+    const { store, alerts, changeEvents, trustProfileAttributes } = createFakeStore();
+    const outcome = await runCompaniesHouseCheck(
+      { vendorId: VENDOR, companyNumber: "00000006" },
+      {
+        fetchProfile: async () => okResult({ company_status: "dissolved" }),
+        store,
+        now: () => new Date("2026-08-10T12:34:56.000Z"),
+      },
+    );
+
+    expect(outcome.status).toBe("ok");
+    if (outcome.status === "ok") {
+      expect(outcome.isBaseline).toBe(true);
+      expect(outcome.changes).toEqual([
+        {
+          attribute: "company_status",
+          previousValue: "active",
+          newValue: "dissolved",
+          severity: "critical",
+        },
+      ]);
+    }
+    expect(changeEvents).toHaveLength(1);
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]?.severity).toBe("critical");
+    // The Trust Profile baseline still records the true observed status, so
+    // later checks diff against "dissolved", not the implicit "active" used
+    // only to decide whether *this* first check should alert.
+    expect(trustProfileAttributes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ attributeKey: "company_status", currentValue: "dissolved" }),
+      ]),
+    );
+  });
+
   it("creates no change event when a subsequent check matches the Trust Profile", async () => {
     const { store, snapshots, alerts, trustProfileAttributes, changeEvents } = createFakeStore();
     const deps = { fetchProfile: async () => okResult(), store };
