@@ -7,6 +7,7 @@
 
 import {
   buildChangeDedupeKey,
+  detectBaselineChanges,
   detectChanges,
   formatChangeValue,
   type TrustProfile,
@@ -209,7 +210,7 @@ export async function runCompaniesHouseCheck(
 
   const trustProfile = await store.getTrustProfile(vendorId);
   const isBaseline = Object.keys(trustProfile).length === 0;
-  const changes = isBaseline ? [] : detectChanges(trustProfile, snapshot);
+  const changes = isBaseline ? detectBaselineChanges(snapshot) : detectChanges(trustProfile, snapshot);
 
   // Preserve the new observation (append-only; never overwrites history).
   const snapshotId = await store.insertSnapshot({
@@ -225,7 +226,7 @@ export async function runCompaniesHouseCheck(
 
   let alertsCreated = 0;
   let eventsCreated = 0;
-  if (!isBaseline && changes.length > 0) {
+  if (changes.length > 0) {
     const eventRecords: ChangeEventRecord[] = changes.map((change) => ({
       vendorId,
       snapshotId,
