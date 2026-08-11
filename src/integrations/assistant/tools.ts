@@ -176,7 +176,7 @@ export async function searchVendorDocuments(
   if (!parsed.success) return { ok: false, error: "Invalid arguments for searchVendorDocuments: query is required." };
 
   try {
-    const matches = await store.searchVendorDocuments(parsed.data.query, parsed.data.vendorId, callerId);
+    const matches = await store.searchVendorDocuments(parsed.data.query, parsed.data.vendorId ?? null, callerId);
     return { ok: true, data: matches.slice(0, MAX_CHUNKS) };
   } catch {
     return { ok: false, error: "Could not search vendor documents." };

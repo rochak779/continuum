@@ -39,11 +39,20 @@ const VENDORS: VendorSummary[] = [
   },
 ];
 
+interface Calls {
+  listVendors: unknown[];
+  getVendorTrustProfile: unknown[];
+  getVendorChanges: unknown[];
+  getOpenAlerts: unknown[];
+  getVendorAuditHistory: unknown[];
+  searchVendorDocuments: unknown[];
+}
+
 function createFakeStore(overrides: Partial<AssistantDataStore> = {}): {
   store: AssistantDataStore;
-  calls: Record<string, unknown[]>;
+  calls: Calls;
 } {
-  const calls: Record<string, unknown[]> = {
+  const calls: Calls = {
     listVendors: [],
     getVendorTrustProfile: [],
     getVendorChanges: [],
@@ -54,27 +63,27 @@ function createFakeStore(overrides: Partial<AssistantDataStore> = {}): {
 
   const store: AssistantDataStore = {
     async listVendors() {
-      calls.listVendors!.push({});
+      calls.listVendors.push({});
       return VENDORS;
     },
     async getVendorTrustProfile(vendorId) {
-      calls.getVendorTrustProfile!.push({ vendorId });
+      calls.getVendorTrustProfile.push({ vendorId });
       return [];
     },
     async getVendorChanges(vendorId, sinceDate) {
-      calls.getVendorChanges!.push({ vendorId, sinceDate });
+      calls.getVendorChanges.push({ vendorId, sinceDate });
       return [];
     },
     async getOpenAlerts(severity, vendorId) {
-      calls.getOpenAlerts!.push({ severity, vendorId });
+      calls.getOpenAlerts.push({ severity, vendorId });
       return [];
     },
     async getVendorAuditHistory(vendorId, sinceDate) {
-      calls.getVendorAuditHistory!.push({ vendorId, sinceDate });
+      calls.getVendorAuditHistory.push({ vendorId, sinceDate });
       return [];
     },
     async searchVendorDocuments(query, vendorId, callerId) {
-      calls.searchVendorDocuments!.push({ query, vendorId, callerId });
+      calls.searchVendorDocuments.push({ query, vendorId, callerId });
       return [];
     },
     ...overrides,
@@ -224,7 +233,7 @@ describe("searchVendorDocuments — guardrails", () => {
     await searchVendorDocuments(store, hostileArgs, "real-caller-id");
 
     expect(calls.searchVendorDocuments).toEqual([
-      { query: "insurance", vendorId: undefined, callerId: "real-caller-id" },
+      { query: "insurance", vendorId: null, callerId: "real-caller-id" },
     ]);
   });
 
