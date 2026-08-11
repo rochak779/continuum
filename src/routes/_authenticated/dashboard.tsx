@@ -20,7 +20,8 @@ import { AddVendorModal } from "@/components/app/AddVendorModal";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { buildDashboardSummary } from "@/lib/dashboard-data";
+import { buildDashboardSummary, describeFailure, latestFailureByVendor } from "@/lib/dashboard-data";
+import { VendorStatusBadge } from "@/components/app/VendorStatusBadge";
 import { VENDOR_HEALTH_LABELS, type VendorHealth } from "@/lib/vendor-health";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -77,7 +78,7 @@ function DashboardPage() {
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["dashboard", "monitoring"],
     queryFn: async () => {
-      const [vendorsResult, alertsResult, changesResult] = await Promise.all([
+      const [vendorsResult, alertsResult, changesResult, failuresResult] = await Promise.all([
         supabase
           .from("vendors")
           .select("id, company_name, category, risk_level, monitoring_status, created_at")
@@ -95,14 +96,20 @@ function DashboardPage() {
           .in("severity", ["critical", "attention"])
           .order("detected_at", { ascending: false })
           .limit(5),
+        supabase
+          .from("vendor_monitoring_failures")
+          .select("vendor_id, error_type, message, checked_at")
+          .order("checked_at", { ascending: false }),
       ]);
       if (vendorsResult.error) throw vendorsResult.error;
       if (alertsResult.error) throw alertsResult.error;
       if (changesResult.error) throw changesResult.error;
+      if (failuresResult.error) throw failuresResult.error;
       return {
         vendors: vendorsResult.data,
         alerts: alertsResult.data,
         changes: changesResult.data,
+        failures: failuresResult.data,
       };
     },
   });
@@ -110,6 +117,12 @@ function DashboardPage() {
   const vendors = data?.vendors ?? [];
   const alerts = data?.alerts ?? [];
   const changes = data?.changes ?? [];
+  const failures = data?.failures ?? [];
+  const failureByVendor = latestFailureByVendor(
+    failures.filter((failure): failure is typeof failure & { vendor_id: string } =>
+      Boolean(failure.vendor_id),
+    ),
+  );
   const summary = buildDashboardSummary(
     vendors,
     alerts.map((alert) => ({
@@ -433,7 +446,16 @@ function DashboardPage() {
                     <td className="py-4">
                       <RiskChip risk={v.risk_level} />
                     </td>
-                    <td className="py-4 text-muted-foreground">{VENDOR_HEALTH_LABELS[v.health]}</td>
+                    <td className="py-4">
+                      <VendorStatusBadge
+                        health={v.health}
+                        failureReason={
+                          failureByVendor.has(v.id)
+                            ? describeFailure(failureByVendor.get(v.id)!)
+                            : undefined
+                        }
+                      />
+                    </td>
                     <td className="py-4 text-right">
                       <MoreVertical className="ml-auto h-4 w-4 text-muted-foreground" />
                     </td>
