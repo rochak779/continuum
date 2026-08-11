@@ -19,12 +19,12 @@ const navItems = [
   { label: "Dashboard", icon: LayoutGrid, to: "/dashboard" as const },
   { label: "Vendors", icon: Users, to: "/vendors" as const },
   { label: "Alerts", icon: Bell, to: "/alerts" as const },
+  { label: "Settings", icon: Settings, to: "/settings" as const },
 ];
 
 const staticItems = [
   { label: "Monitoring", icon: Eye },
   { label: "Reports", icon: BarChart3 },
-  { label: "Settings", icon: Settings },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
