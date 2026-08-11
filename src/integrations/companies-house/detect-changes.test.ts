@@ -40,6 +40,22 @@ describe("detectChanges", () => {
     expect(changes[0]?.severity).toBe("critical");
   });
 
+  it("classifies a move into administration as attention, not critical", () => {
+    const changes = detectChanges(
+      monitoredSnapshotValues(snapshot()),
+      snapshot({ company_status: "administration" }),
+    );
+    expect(changes[0]?.severity).toBe("attention");
+  });
+
+  it("classifies a move into liquidation as critical even from another risk status", () => {
+    const changes = detectChanges(
+      monitoredSnapshotValues(snapshot({ company_status: "administration" })),
+      snapshot({ company_status: "liquidation" }),
+    );
+    expect(changes[0]?.severity).toBe("critical");
+  });
+
   it("builds the same key for equivalent object states regardless of key order", () => {
     const a = buildChangeDedupeKey("vendor-1", "companies_house", {
       attribute: "registered_address",

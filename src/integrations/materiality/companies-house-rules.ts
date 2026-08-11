@@ -3,9 +3,11 @@
 //
 // Each rule below implements one of the ERD's three example buckets:
 //
-//   Critical      -> company_status moves into a non-operational state
+//   Critical      -> company_status moves to dissolved or liquidation
 //   Attention     -> company name / registered office / SIC classification
-//                    changed, or company_status changed to some other status
+//                    changed, or company_status moves to any other
+//                    non-active status (administration, receivership,
+//                    voluntary-arrangement, etc.) or between benign statuses
 //   Informational -> everything else (handled by the engine's fallback rule,
 //                    not repeated here — ERD §21 just says "non-risk
 //                    metadata changes", it doesn't enumerate every field)
@@ -21,9 +23,15 @@ export const COMPANIES_HOUSE_PROVIDER = "companies_house";
 // Company statuses that indicate the company may no longer safely operate.
 // Source: Companies House `company_status` enumeration (ERD §21's "other
 // clearly non-operational company states").
-const RISK_STATUSES = new Set<string>([
-  "dissolved",
-  "liquidation",
+//
+// Split into two tiers: CRITICAL_STATUSES are states where the company has
+// definitively stopped operating (winding-up outcomes) and warrant an
+// immediate "review the vendor relationship" action. ATTENTION_STATUSES are
+// non-operational or distressed states that are still in-progress or
+// recoverable, and warrant a "review to confirm impact" action instead.
+const CRITICAL_STATUSES = new Set<string>(["dissolved", "liquidation"]);
+
+const ATTENTION_STATUSES = new Set<string>([
   "administration",
   "receivership",
   "receiver-action",
@@ -34,8 +42,14 @@ const RISK_STATUSES = new Set<string>([
   "removed",
 ]);
 
+const RISK_STATUSES = new Set<string>([...CRITICAL_STATUSES, ...ATTENTION_STATUSES]);
+
 export function isRiskCompanyStatus(status: unknown): boolean {
   return typeof status === "string" && RISK_STATUSES.has(status.toLowerCase());
+}
+
+function isCriticalCompanyStatus(status: unknown): boolean {
+  return typeof status === "string" && CRITICAL_STATUSES.has(status.toLowerCase());
 }
 
 function describe(value: unknown): string {
@@ -48,13 +62,13 @@ function isCompaniesHouse(input: MaterialityInput): boolean {
   return input.provider === COMPANIES_HOUSE_PROVIDER;
 }
 
-/** Active/whatever -> Dissolved/Liquidation/Administration/... — ERD §21 Critical, verbatim example. */
+/** Active/whatever -> Dissolved/Liquidation — ERD §21 Critical, verbatim example. */
 const companyStatusBecomesNonOperational: MaterialityRule = {
   id: "companies_house.company_status.non_operational",
   appliesTo: (input) =>
     isCompaniesHouse(input) &&
     input.attributeKey === "company_status" &&
-    isRiskCompanyStatus(input.newValue),
+    isCriticalCompanyStatus(input.newValue),
   classify: (input): MaterialityResult => ({
     severity: "critical",
     explanation: `Company status changed from ${describe(input.previousValue)} to ${describe(input.newValue)}.`,
@@ -64,7 +78,11 @@ const companyStatusBecomesNonOperational: MaterialityRule = {
   }),
 };
 
-/** Any other company_status transition (e.g. one benign status to another, or recovering out of a risk status). */
+/**
+ * Any other company_status transition: recoverable/in-progress distressed
+ * states (administration, receivership, voluntary-arrangement, etc.) as well
+ * as benign transitions between non-risk statuses.
+ */
 const companyStatusOtherChange: MaterialityRule = {
   id: "companies_house.company_status.other",
   appliesTo: (input) => isCompaniesHouse(input) && input.attributeKey === "company_status",

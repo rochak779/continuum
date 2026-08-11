@@ -25,6 +25,7 @@ describe("buildDashboardSummary", () => {
 
     expect(summary.totalVendors).toBe(4);
     expect(summary.openAlerts).toBe(3);
+    expect(summary.attentionAlerts).toBe(1);
     expect(summary.healthCounts).toEqual({
       healthy: 1,
       attention_required: 1,

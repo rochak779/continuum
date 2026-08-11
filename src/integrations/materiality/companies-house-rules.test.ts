@@ -19,9 +19,9 @@ function classify(attributeKey: string, previousValue: unknown, newValue: unknow
   return classifyChange(input, COMPANIES_HOUSE_MATERIALITY_RULES);
 }
 
-const NON_OPERATIONAL_STATUSES = [
-  "dissolved",
-  "liquidation",
+const CRITICAL_STATUSES = ["dissolved", "liquidation"];
+
+const ATTENTION_NON_OPERATIONAL_STATUSES = [
   "administration",
   "receivership",
   "receiver-action",
@@ -32,8 +32,10 @@ const NON_OPERATIONAL_STATUSES = [
   "removed",
 ];
 
+const NON_OPERATIONAL_STATUSES = [...CRITICAL_STATUSES, ...ATTENTION_NON_OPERATIONAL_STATUSES];
+
 describe("Companies House materiality rules — Critical", () => {
-  it.each(NON_OPERATIONAL_STATUSES)("classifies active -> %s as critical", (status) => {
+  it.each(CRITICAL_STATUSES)("classifies active -> %s as critical", (status) => {
     const result = classify("company_status", "active", status);
 
     expect(result.severity).toBe("critical");
@@ -66,6 +68,11 @@ describe("Companies House materiality rules — Critical", () => {
     expect(result.severity).toBe("critical");
   });
 
+  it("does not classify active -> administration as critical (it's Attention, not Critical)", () => {
+    const result = classify("company_status", "active", "administration");
+    expect(result.severity).toBe("attention");
+  });
+
   it("treats a transition into an unrecognised-but-clearly-non-operational status as attention, not silently critical", () => {
     // "voluntary-strike-off" isn't in the enumerated risk list — this
     // documents the deterministic engine's actual behaviour (only the
@@ -77,6 +84,16 @@ describe("Companies House materiality rules — Critical", () => {
 });
 
 describe("Companies House materiality rules — Attention", () => {
+  it.each(ATTENTION_NON_OPERATIONAL_STATUSES)(
+    "classifies active -> %s as attention, not critical",
+    (status) => {
+      const result = classify("company_status", "active", status);
+
+      expect(result.severity).toBe("attention");
+      expect(result.ruleId).toBe("companies_house.company_status.other");
+    },
+  );
+
   it("classifies any other company_status transition as attention", () => {
     const result = classify("company_status", "active", "active-proposal-to-strike-off");
 

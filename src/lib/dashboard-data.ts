@@ -18,6 +18,7 @@ export interface DashboardAlert extends HealthAlert {
 export interface DashboardSummary {
   totalVendors: number;
   openAlerts: number;
+  attentionAlerts: number;
   healthByVendor: Map<string, VendorHealth>;
   healthCounts: Record<VendorHealth, number>;
 }
@@ -117,6 +118,7 @@ export function buildDashboardSummary(
   return {
     totalVendors: vendors.length,
     openAlerts: unresolvedAlerts.length,
+    attentionAlerts: unresolvedAlerts.filter((alert) => alert.severity === "attention").length,
     healthByVendor,
     healthCounts,
   };

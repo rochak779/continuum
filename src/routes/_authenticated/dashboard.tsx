@@ -72,6 +72,17 @@ function displayValue(value: Json | null): string {
   return String(value);
 }
 
+function describeAlertReason(alert: {
+  attribute_checked: string;
+  previous_value: string | null;
+  new_value: string | null;
+}): string {
+  const label = ATTRIBUTE_LABELS[alert.attribute_checked] ?? alert.attribute_checked;
+  const previous = alert.previous_value ?? "unset";
+  const next = alert.new_value ?? "unset";
+  return `${label} changed from ${previous} to ${next}.`;
+}
+
 function initials(name: string) {
   return name.slice(0, 2).toUpperCase();
 }
@@ -90,7 +101,9 @@ function DashboardPage() {
           .order("created_at", { ascending: false }),
         supabase
           .from("vendor_monitoring_alerts")
-          .select("id, vendor_id, severity, status, attribute_checked, detected_at")
+          .select(
+            "id, vendor_id, severity, status, attribute_checked, previous_value, new_value, detected_at",
+          )
           .neq("status", "resolved")
           .order("detected_at", { ascending: false }),
         supabase
@@ -161,6 +174,7 @@ function DashboardPage() {
   const actionable = alerts.slice(0, 5).map((alert) => ({
     id: alert.id,
     task: `Review ${ATTRIBUTE_LABELS[alert.attribute_checked] ?? alert.attribute_checked} change`,
+    reason: describeAlertReason(alert),
     vendor: vendorNames.get(alert.vendor_id) ?? "Unknown vendor",
     priority: alert.severity === "critical" ? "High" : "Medium",
     due: "Open",
@@ -239,7 +253,11 @@ function DashboardPage() {
           valueClass="text-foreground"
         />
         <MetricCard label="Open alerts" value={metricValue(summary.openAlerts)} />
-        <MetricCard label="Overdue actions" value="—" valueClass="text-muted-foreground" />
+        <MetricCard
+          label="Attention Alerts"
+          value={metricValue(summary.attentionAlerts)}
+          accent="var(--warning)"
+        />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -376,7 +394,10 @@ function DashboardPage() {
               <tbody>
                 {actionable.map((t) => (
                   <tr key={t.id} className="border-t border-border">
-                    <td className="py-4 text-foreground">{t.task}</td>
+                    <td className="py-4 text-foreground">
+                      <p>{t.task}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{t.reason}</p>
+                    </td>
                     <td className="py-4 font-semibold text-foreground">{t.vendor}</td>
                     <td className="py-4">
                       <PriorityChip priority={t.priority} />

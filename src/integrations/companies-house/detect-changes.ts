@@ -8,9 +8,13 @@ import type {
 
 export type TrustProfile = Record<string, JsonValue>;
 
-const RISK_STATUSES = new Set([
-  "dissolved",
-  "liquidation",
+// Statuses where the company has definitively stopped operating (winding-up
+// outcomes) — these are always Critical, regardless of the previous status.
+const CRITICAL_STATUSES = new Set(["dissolved", "liquidation"]);
+
+// Non-operational or distressed statuses that are still in-progress or
+// recoverable — these are Attention, not Critical.
+const ATTENTION_STATUSES = new Set([
   "administration",
   "receivership",
   "receiver-action",
@@ -21,10 +25,9 @@ const RISK_STATUSES = new Set([
   "removed",
 ]);
 
-function statusSeverity(previous: JsonValue, next: JsonValue): Severity {
-  const wasRisk = typeof previous === "string" && RISK_STATUSES.has(previous.toLowerCase());
-  const isRisk = typeof next === "string" && RISK_STATUSES.has(next.toLowerCase());
-  return isRisk && !wasRisk ? "critical" : "attention";
+function statusSeverity(next: JsonValue): Severity {
+  const isCritical = typeof next === "string" && CRITICAL_STATUSES.has(next.toLowerCase());
+  return isCritical ? "critical" : "attention";
 }
 
 function canonicalJson(value: JsonValue): string {
@@ -77,10 +80,7 @@ export function detectChanges(
       attribute,
       previousValue,
       newValue,
-      severity:
-        attribute === "company_status"
-          ? statusSeverity(previousValue, newValue)
-          : "attention",
+      severity: attribute === "company_status" ? statusSeverity(newValue) : "attention",
     });
   }
 
