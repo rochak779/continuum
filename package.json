@@ -16,6 +16,7 @@
     "verify:tenant-isolation": "bash scripts/verify-tenant-isolation.sh"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.41",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",

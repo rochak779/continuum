@@ -1,15 +1,19 @@
 // src/integrations/document-extraction/extract-document-fields.server.ts
 //
 // Server-only: downloads a document from the private vendor-documents
-// Storage bucket and asks Claude to identify what the document is and
+// Storage bucket and asks Gemini to identify what the document is and
 // when it expires. Best-effort — any failure (download, model call,
 // malformed response) resolves to nulls rather than throwing, since
 // extraction must never block the upload it's attached to.
 //
-// Only called for content types Claude can read directly as a file part
+// Only called for content types Gemini can read directly as a file part
 // (PDF and common image types). Word/Excel uploads never reach this
 // function — the caller skips it and leaves fields blank for manual entry.
+//
+// Uses the Google Generative AI API directly (not the Vercel AI Gateway) so
+// this runs on Google's free tier — needs GOOGLE_GENERATIVE_AI_API_KEY.
 
+import { google } from "@ai-sdk/google";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 
@@ -62,7 +66,7 @@ export async function extractDocumentFields(input: {
     const bytes = new Uint8Array(await data.arrayBuffer());
 
     const result = await generateText({
-      model: "anthropic/claude-sonnet-5",
+      model: google("gemini-2.5-flash"),
       output: Output.object({ schema: extractionSchema }),
       messages: [
         {

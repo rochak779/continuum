@@ -30,7 +30,7 @@ Item, Expiry date**.
   no-versioning policy on vendor documents.
 - Reminders or notifications for approaching expiries. Dashboard surfacing
   only for v1.
-- AI expiry extraction for doc/docx/xls/xlsx files (Claude cannot read
+- AI expiry extraction for doc/docx/xls/xlsx files (Gemini cannot read
   these directly as documents the way it reads PDFs/images). These file
   types get manual-entry-only fields.
 - Flagging or otherwise surfacing already-expired documents. The dashboard
@@ -75,9 +75,11 @@ by `src/integrations/alerts/resolve-alert-fn.ts`:
   - Downloads the file from the private `vendor-documents` Storage bucket
     via `supabaseAdmin` (service-role client never reaches the client
     bundle, same rule as `companies-house/provider.server.ts`).
-  - Calls Claude Sonnet 5 (`anthropic/claude-sonnet-5`) through the Vercel
-    AI Gateway using the `ai` package's `generateObject`, passing the file
-    as a document/image content part and a zod schema:
+  - Calls Google Gemini (`gemini-2.5-flash`) directly via `@ai-sdk/google`
+    (Google's free-tier API, not the Vercel AI Gateway — switched from an
+    earlier Claude/Gateway draft to avoid Gateway usage costs) using the
+    `ai` package's `generateText`/`Output.object`, passing the file as a
+    document/image content part and a zod schema:
     ```ts
     z.object({
       itemLabel: z.string().nullable(),
