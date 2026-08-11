@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDashboardSummary, describeFailure, latestFailureByVendor } from "./dashboard-data";
+import {
+  buildDashboardSummary,
+  describeFailure,
+  latestFailureByVendor,
+  normalizeAlertSeverity,
+} from "./dashboard-data";
 
 describe("buildDashboardSummary", () => {
   it("aggregates vendor health and unresolved alerts for the dashboard", () => {
@@ -79,5 +84,19 @@ describe("describeFailure", () => {
     expect(
       describeFailure({ vendor_id: "v1", error_type: "something_new", message: null, checked_at: "2026-08-01T00:00:00Z" }),
     ).toBe("Monitoring check failed");
+  });
+});
+
+describe("normalizeAlertSeverity", () => {
+  it("keeps critical as critical", () => {
+    expect(normalizeAlertSeverity("critical")).toBe("critical");
+  });
+
+  it("keeps info as info", () => {
+    expect(normalizeAlertSeverity("info")).toBe("info");
+  });
+
+  it("coerces an unknown severity to attention", () => {
+    expect(normalizeAlertSeverity("warning")).toBe("attention");
   });
 });

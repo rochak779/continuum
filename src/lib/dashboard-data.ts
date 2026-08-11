@@ -63,6 +63,16 @@ export function describeFailure(failure: DashboardFailure): string {
   return ERROR_TYPE_LABELS[failure.error_type] ?? failure.message ?? "Monitoring check failed";
 }
 
+/**
+ * Coerces a raw alert row's severity into the closed set `buildDashboardSummary`
+ * understands. Any value other than "critical"/"info" is treated as "attention" —
+ * the deliberately conservative default for alert types the UI doesn't yet
+ * specifically recognize.
+ */
+export function normalizeAlertSeverity(severity: string): "critical" | "attention" | "info" {
+  return severity === "critical" || severity === "info" ? severity : "attention";
+}
+
 function monitoringStatus(value: string): MonitoringStatus {
   const known: MonitoringStatus[] = [
     "not_monitored",

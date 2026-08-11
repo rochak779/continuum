@@ -20,7 +20,12 @@ import { AddVendorModal } from "@/components/app/AddVendorModal";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { buildDashboardSummary, describeFailure, latestFailureByVendor } from "@/lib/dashboard-data";
+import {
+  buildDashboardSummary,
+  describeFailure,
+  latestFailureByVendor,
+  normalizeAlertSeverity,
+} from "@/lib/dashboard-data";
 import { VendorStatusBadge } from "@/components/app/VendorStatusBadge";
 import { VENDOR_HEALTH_LABELS, type VendorHealth } from "@/lib/vendor-health";
 import type { Json } from "@/integrations/supabase/types";
@@ -99,7 +104,11 @@ function DashboardPage() {
         supabase
           .from("vendor_monitoring_failures")
           .select("vendor_id, error_type, message, checked_at")
-          .order("checked_at", { ascending: false }),
+          .order("checked_at", { ascending: false })
+          // Bounds the payload; append-only log can grow unbounded. A vendor's most
+          // recent failure could theoretically fall outside this window if the log
+          // grows very large, silently dropping its status tooltip — known limitation.
+          .limit(500),
       ]);
       if (vendorsResult.error) throw vendorsResult.error;
       if (alertsResult.error) throw alertsResult.error;
@@ -125,11 +134,7 @@ function DashboardPage() {
   );
   const summary = buildDashboardSummary(
     vendors,
-    alerts.map((alert) => ({
-      ...alert,
-      severity:
-        alert.severity === "critical" || alert.severity === "info" ? alert.severity : "attention",
-    })),
+    alerts.map((alert) => ({ ...alert, severity: normalizeAlertSeverity(alert.severity) })),
   );
   const showOnboarding =
     manualOpen || (!isLoading && !isError && vendors.length === 0 && !dismissed);
