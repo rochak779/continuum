@@ -58,7 +58,7 @@ export const DIAL_CODES = [
   { code: "AU", dial: "+61" },
   { code: "AE", dial: "+971" },
   { code: "SG", dial: "+65" },
-];
+] as const;
 
 export const ROLES = ["Member", "Admin", "Viewer"];
 
