@@ -12,7 +12,7 @@ export interface SchedulerStore {
   getEligibleVendors(limit: number): Promise<EligibleVendor[]>;
   beginRun(
     vendor: EligibleVendor,
-    trigger: "manual" | "scheduled" | "retry",
+    trigger: "manual" | "scheduled" | "retry" | "initial_baseline",
   ): Promise<string | null>;
   finishRun(runId: string, outcome: CheckOutcome | Error): Promise<void>;
   markChecked(vendorId: string, checkedAt: string): Promise<void>;

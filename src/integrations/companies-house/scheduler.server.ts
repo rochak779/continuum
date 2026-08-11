@@ -128,12 +128,13 @@ export async function runScheduledCompaniesHouseMonitoring(): Promise<
   return runScheduledBatch({ store, runCheck });
 }
 
-export async function runRecordedManualCompaniesHouseCheck(
+async function runRecordedCompaniesHouseCheck(
   vendor: EligibleVendor,
+  trigger: "manual" | "initial_baseline",
 ): Promise<CheckOutcome> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const store = createSupabaseSchedulerStore(supabaseAdmin);
-  const runId = await store.beginRun(vendor, "manual");
+  const runId = await store.beginRun(vendor, trigger);
   if (!runId) throw new Error("A monitoring check is already running for this vendor");
 
   let outcome: CheckOutcome;
@@ -149,4 +150,18 @@ export async function runRecordedManualCompaniesHouseCheck(
   await store.finishRun(runId, outcome);
   await store.markChecked(vendor.vendorId, new Date().toISOString());
   return outcome;
+}
+
+export function runRecordedManualCompaniesHouseCheck(vendor: EligibleVendor): Promise<CheckOutcome> {
+  return runRecordedCompaniesHouseCheck(vendor, "manual");
+}
+
+/**
+ * Runs a vendor's first Companies House check right after it's created, so
+ * it doesn't sit as "not monitored" waiting for the next scheduled sweep.
+ * Same recording semantics as a manual check, just tagged for audit as
+ * `initial_baseline` instead of `manual`.
+ */
+export function runInitialBaselineCompaniesHouseCheck(vendor: EligibleVendor): Promise<CheckOutcome> {
+  return runRecordedCompaniesHouseCheck(vendor, "initial_baseline");
 }

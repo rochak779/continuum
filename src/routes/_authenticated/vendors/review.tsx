@@ -24,6 +24,7 @@ import {
   type VendorDraftRow,
 } from "@/lib/vendor-options";
 import { validateVendorRow, type VendorFieldName } from "@/lib/vendor-validation";
+import { triggerInitialBaselineChecks } from "@/lib/vendor-monitoring";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/vendors/review")({
@@ -101,11 +102,15 @@ function ReviewVendorPage() {
         return { ...validated, owner_id: uid, source: row.source || "file" };
       });
 
-      const { error: insertError } = await supabase.from("vendors").insert(payload);
+      const { data: created, error: insertError } = await supabase
+        .from("vendors")
+        .insert(payload)
+        .select("id, companies_house_number");
       if (insertError) throw insertError;
 
       clearVendorDraftRows();
       await queryClient.invalidateQueries({ queryKey: ["vendors"] });
+      triggerInitialBaselineChecks(created ?? []);
       navigate({ to: "/vendors" });
     } catch (err) {
       console.error("Failed to create vendor profiles:", err);
