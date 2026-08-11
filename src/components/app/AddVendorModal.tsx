@@ -1,5 +1,4 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 import { Store, PlugZap, FileUp, FilePen, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -11,11 +10,6 @@ interface AddVendorModalProps {
 
 export function AddVendorModal({ isOpen, onClose, hideUpload }: AddVendorModalProps) {
   const navigate = useNavigate();
-  const [comingSoon, setComingSoon] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) setComingSoon(false);
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -27,8 +21,9 @@ export function AddVendorModal({ isOpen, onClose, hideUpload }: AddVendorModalPr
     title: "Connect your ERP",
     description:
       "Sync automatically with SAP, Oracle, NetSuite, and other major enterprise systems.",
-    badge: comingSoon ? "Coming soon" : undefined,
-    onClick: () => setComingSoon(true),
+    badge: "Coming soon",
+    disabled: true,
+    onClick: () => {},
   });
 
   if (!hideUpload) {
@@ -102,19 +97,22 @@ function OptionCard({
   title,
   description,
   badge,
+  disabled,
   onClick,
 }: {
   icon: React.ReactNode;
   title: string;
   description: string;
   badge?: string | undefined;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
-      className="flex h-full flex-col rounded-2xl border border-border bg-card p-6 text-left shadow-card transition-shadow hover:shadow-elevated"
+      className="flex h-full flex-col rounded-2xl border border-border bg-card p-6 text-left shadow-card transition-shadow hover:shadow-elevated disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-card"
     >
       <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-primary">
         {icon}
