@@ -284,9 +284,11 @@ export type Database = {
         Row: {
           content_type: string | null
           created_at: string
+          expiry_date: string | null
           file_name: string
           file_size: number
           id: string
+          item_label: string | null
           owner_id: string
           storage_path: string
           uploaded_by: string
@@ -295,9 +297,11 @@ export type Database = {
         Insert: {
           content_type?: string | null
           created_at?: string
+          expiry_date?: string | null
           file_name: string
           file_size: number
           id?: string
+          item_label?: string | null
           owner_id: string
           storage_path: string
           uploaded_by: string
@@ -306,9 +310,11 @@ export type Database = {
         Update: {
           content_type?: string | null
           created_at?: string
+          expiry_date?: string | null
           file_name?: string
           file_size?: number
           id?: string
+          item_label?: string | null
           owner_id?: string
           storage_path?: string
           uploaded_by?: string

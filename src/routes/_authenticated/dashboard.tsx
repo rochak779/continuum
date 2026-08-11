@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   buildDashboardSummary,
+  buildUpcomingExpiries,
   describeFailure,
   latestFailureByVendor,
   normalizeAlertSeverity,
@@ -94,7 +95,7 @@ function DashboardPage() {
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["dashboard", "monitoring"],
     queryFn: async () => {
-      const [vendorsResult, alertsResult, changesResult, failuresResult] = await Promise.all([
+      const [vendorsResult, alertsResult, changesResult, failuresResult, documentsResult] = await Promise.all([
         supabase
           .from("vendors")
           .select("id, company_name, category, risk_level, monitoring_status, created_at")
@@ -122,16 +123,25 @@ function DashboardPage() {
           // recent failure could theoretically fall outside this window if the log
           // grows very large, silently dropping its status tooltip — known limitation.
           .limit(500),
+        supabase
+          .from("vendor_documents")
+          .select("id, vendor_id, item_label, file_name, expiry_date")
+          .not("expiry_date", "is", null)
+          .gte("expiry_date", new Date().toISOString().slice(0, 10))
+          .order("expiry_date", { ascending: true })
+          .limit(5),
       ]);
       if (vendorsResult.error) throw vendorsResult.error;
       if (alertsResult.error) throw alertsResult.error;
       if (changesResult.error) throw changesResult.error;
       if (failuresResult.error) throw failuresResult.error;
+      if (documentsResult.error) throw documentsResult.error;
       return {
         vendors: vendorsResult.data,
         alerts: alertsResult.data,
         changes: changesResult.data,
         failures: failuresResult.data,
+        documents: documentsResult.data,
       };
     },
   });
@@ -158,6 +168,8 @@ function DashboardPage() {
     color: HEALTH_COLORS[health],
   }));
   const vendorNames = new Map(vendors.map((vendor) => [vendor.id, vendor.company_name]));
+  const documents = data?.documents ?? [];
+  const upcomingExpiries = buildUpcomingExpiries(documents, vendorNames);
   const alertsByType = Object.entries(
     alerts.reduce<Record<string, number>>((counts, alert) => {
       const key = ATTRIBUTE_LABELS[alert.attribute_checked] ?? alert.attribute_checked;
@@ -333,7 +345,29 @@ function DashboardPage() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Panel title="Upcoming Reviews & Expiries" action="View All">
-          <PanelState>No upcoming reviews or expiries.</PanelState>
+          {isLoading ? (
+            <PanelState>Loading upcoming expiries…</PanelState>
+          ) : upcomingExpiries.length === 0 ? (
+            <PanelState>No upcoming reviews or expiries.</PanelState>
+          ) : (
+            <div className="space-y-4">
+              {upcomingExpiries.map((row) => (
+                <div key={row.id} className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">{row.companyName}</p>
+                    <p className="truncate text-sm text-muted-foreground">{row.item}</p>
+                  </div>
+                  <span className="shrink-0 text-sm text-muted-foreground">
+                    {new Date(`${row.expiryDate}T00:00:00`).toLocaleDateString(undefined, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </Panel>
 
         <Panel title="Recent Material Changes" action="View All">
