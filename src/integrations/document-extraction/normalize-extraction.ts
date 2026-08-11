@@ -14,8 +14,11 @@ export function normalizeExtractedDate(value: string | null | undefined): string
   const trimmed = value.trim();
   if (ISO_DATE_PATTERN.test(trimmed)) {
     // Already ISO — still verify it's a real calendar date (e.g. reject "2027-02-31").
+    // JS silently rolls impossible dates over to a later real date (e.g. Feb 31 -> Mar 3),
+    // so round-trip through ISO and compare against the input to catch that.
     const parsed = new Date(`${trimmed}T00:00:00Z`);
-    return Number.isNaN(parsed.getTime()) ? null : trimmed;
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toISOString().slice(0, 10) === trimmed ? trimmed : null;
   }
 
   // Only try to parse if it looks like it contains date-like content

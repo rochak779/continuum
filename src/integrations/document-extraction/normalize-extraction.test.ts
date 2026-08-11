@@ -30,4 +30,8 @@ describe("normalizeExtractedDate", () => {
   it("normalizes a parseable but non-ISO date string to ISO", () => {
     expect(normalizeExtractedDate("January 15, 2027")).toBe("2027-01-15");
   });
+
+  it("returns null for a calendar-impossible ISO date (Feb 31)", () => {
+    expect(normalizeExtractedDate("2027-02-31")).toBeNull();
+  });
 });

@@ -358,7 +358,7 @@ function DashboardPage() {
                     <p className="truncate text-sm text-muted-foreground">{row.item}</p>
                   </div>
                   <span className="shrink-0 text-sm text-muted-foreground">
-                    {new Date(row.expiryDate).toLocaleDateString(undefined, {
+                    {new Date(`${row.expiryDate}T00:00:00`).toLocaleDateString(undefined, {
                       year: "numeric",
                       month: "short",
                       day: "numeric",
