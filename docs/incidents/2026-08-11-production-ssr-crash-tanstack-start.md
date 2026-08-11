@@ -1,9 +1,13 @@
 # Incident: production down after PR #7 merge — `createCsrfMiddleware is not a function`
 
 **Date:** 2026-08-11
-**Status:** RESOLVED — root cause fixed via a coordinated `@tanstack/*` +
-`nitro` version bump, verified against a real Vercel preview deployment.
-See "Resolution" section below for exact versions and verification evidence.
+**Status:** RESOLVED — fixed via a bump of the `@tanstack/*` package family,
+plus an incidental downgrade of the transitive `h3` dependency (now pinned
+via `overrides` to prevent regression). `nitro` itself is **unchanged** from
+before the incident (`3.0.260603-beta` both before and after — it was bumped
+mid-investigation, then reverted, see below). Verified against a real Vercel
+preview deployment. See "Resolution" section below for exact versions,
+what's actually causally established vs. not, and verification evidence.
 
 ## Summary
 
@@ -215,3 +219,47 @@ happened in — stronger evidence than the page-GET checks alone.
 
 **Not yet done:** this branch has not been merged to `main` or promoted to
 production. That is a separate decision for whoever owns this plan next.
+
+## Post-review addendum: `h3` transitive dependency also moved, now pinned
+
+A whole-branch review after the fact found that the committed
+`package-lock.json` was not actually reproducible from `package.json`. The
+`nitro` dependency declares `h3: ^2.0.1-rc.22`, but a fresh `npm install`
+against the *unmodified* `package.json` resolved `h3` to `2.0.1-rc.26` — the
+exact version present in the original broken commit (`6103c83`). The
+verified, working lockfile had `h3` pinned to `2.0.1-rc.22` only as an
+incidental side effect of the clean lockfile regeneration done earlier in
+this plan (see the "no lockfile before `9c28b84`" section above), not
+because anything in `package.json` actually constrained it there.
+
+This matters because `h3` is Nitro's HTTP/middleware layer — it's where
+`createCsrfMiddleware`, the function in the crash stack trace, lives. Since
+`h3` moved (`rc.26` → `rc.22`) at the same time the `@tanstack/*` family was
+bumped, and both changes shipped together into the one verified-working
+preview deployment, **this incident's existing verification does not
+disentangle which of the two changes actually fixed the crash.** It's
+plausible the `h3` downgrade did some or all of the real work and the
+`@tanstack/*` bump is coincidental (or vice versa, or both were needed
+together). No experiment was run holding one fixed and varying the other.
+
+To stop this from silently regressing — a fresh `npm install`,
+dependency-bot lockfile refresh, or merge-conflict lockfile regen could
+otherwise re-resolve `h3` back to `rc.26` and reintroduce the exact
+original bug — an explicit `"overrides": { "h3": "2.0.1-rc.22" }` was added
+to `package.json`. Verified: deleting `node_modules` and
+`package-lock.json` and running `npm install` from a clean slate
+reproducibly resolves `h3` to `2.0.1-rc.22` (`npm ls h3` reports it as
+`overridden`), and `tsc --noEmit` / `lint` / `test` all still pass.
+
+If this ever needs to be root-caused for real, the way to do it is a preview
+deploy with `@tanstack/*` bumped but `h3` forced back to `rc.26` (or the
+reverse), to see which one alone reproduces the crash.
+
+## Known follow-up (not fixed here): `monitor:check` still requires `bun`
+
+`package.json`'s `monitor:check` script (`bun run
+scripts/check-vendor-monitoring.ts`) still shells out to `bun`, even though
+`bun.lock` was removed earlier in this plan. This is accepted as a known
+gap for now — Vercel's build never runs this script, and re-adding a
+tracked `bun.lock` (or rewriting the script to run under `npm`/`node`) is
+out of scope for this plan.

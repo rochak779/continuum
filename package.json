@@ -15,6 +15,9 @@
     "monitor:check": "bun run scripts/check-vendor-monitoring.ts",
     "verify:tenant-isolation": "bash scripts/verify-tenant-isolation.sh"
   },
+  "overrides": {
+    "h3": "2.0.1-rc.22"
+  },
   "dependencies": {
     "@ai-sdk/google": "^4.0.41",
     "@hookform/resolvers": "^5.2.2",
@@ -74,7 +77,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
-    "@lovable.dev/vite-tanstack-config": "^2.10.0",
+    "@lovable.dev/vite-tanstack-config": "2.11.0",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
