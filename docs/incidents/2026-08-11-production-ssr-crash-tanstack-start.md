@@ -189,5 +189,29 @@ No route returned a 500, an error-boundary page, or the `createCsrfMiddleware
 is not a function` signature. The crash described in this incident is
 confirmed gone on this branch.
 
+**Additional, stronger check — direct server-function invocation:** the four
+routes above are page GETs; the original crash was specifically in CSRF
+middleware, which every TanStack Start server-function call routes through,
+so a direct server-fn POST is a more targeted test of the exact broken code
+path. Located the two generated `POST /_serverFn/<id>` endpoints by grepping
+the built server bundle (`resolveAlertFn` and `extractDocumentFieldsFn`) and
+invoked both directly on the same preview deployment
+(`dpl_413hj5co1qCvQpJu39uPZcYShwpJ`):
+
+```
+POST /_serverFn/b3a1eba16d48d1bb69b59a7de8073a48d2dd154eb1d56ff44676557376ac5a20   (resolveAlertFn)
+POST /_serverFn/e46b7466fb9c0ea4bbbc3437fe9498722c9b29652d65234eaf98a006d2221f6a   (extractDocumentFieldsFn)
+```
+
+Both returned `HTTP/2 500` with `x-tss-serialized: true` and a structured
+TanStack Start RPC error body (`{"...":"$TSR/Error"...,"Seroval Error"}`) —
+i.e. the request reached and was processed by the server-function pipeline
+(CSRF middleware included), and failed only because the hand-crafted request
+body wasn't in TanStack's expected wire format. No `createCsrfMiddleware`
+string in either response, no generic unhandled-exception page. This is a
+pass by the same "some structured response, not the crash" standard used
+throughout this doc, and it exercises the exact code path the incident
+happened in — stronger evidence than the page-GET checks alone.
+
 **Not yet done:** this branch has not been merged to `main` or promoted to
 production. That is a separate decision for whoever owns this plan next.
