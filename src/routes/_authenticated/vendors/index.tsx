@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { AddVendorModal } from "@/components/app/AddVendorModal";
 import { VendorStatusBadge } from "@/components/app/VendorStatusBadge";
+import { VendorDocumentsCell } from "@/components/app/VendorDocumentsCell";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -98,6 +99,7 @@ function VendorsPage() {
                 <th className="px-6 py-4">Owner</th>
                 <th className="px-6 py-4">Risk</th>
                 <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Documents</th>
               </tr>
             </thead>
             <tbody>
@@ -115,6 +117,9 @@ function VendorsPage() {
                         failureByVendor.has(v.id) ? describeFailure(failureByVendor.get(v.id)!) : undefined
                       }
                     />
+                  </td>
+                  <td className="px-6 py-4">
+                    <VendorDocumentsCell vendorId={v.id} />
                   </td>
                 </tr>
               ))}
