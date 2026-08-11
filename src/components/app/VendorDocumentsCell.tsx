@@ -10,6 +10,23 @@ import { formatFileSize, validateDocumentFile } from "@/lib/vendor-documents";
 
 const BUCKET = "vendor-documents";
 
+const EXTENSION_MIME_TYPES: Record<string, string> = {
+  pdf: "application/pdf",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
+
+function resolveMimeType(file: File): string {
+  if (file.type) return file.type;
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  return (extension && EXTENSION_MIME_TYPES[extension]) || "application/octet-stream";
+}
+
 export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,10 +69,13 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
           rejected.push(`${file.name} (${validation.reason})`);
           continue;
         }
-        const storagePath = `${uid}/${vendorId}/${crypto.randomUUID()}-${file.name}`;
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const storagePath = `${uid}/${vendorId}/${crypto.randomUUID()}-${safeName}`;
+        const resolvedType = resolveMimeType(file);
+        const uploadFile = file.type === resolvedType ? file : new File([file], file.name, { type: resolvedType });
         const { error: uploadError } = await supabase.storage
           .from(BUCKET)
-          .upload(storagePath, file, file.type ? { contentType: file.type } : {});
+          .upload(storagePath, uploadFile, { contentType: resolvedType });
         if (uploadError) {
           failed.push(file.name);
           continue;
@@ -66,7 +86,7 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
           file_name: file.name,
           storage_path: storagePath,
           file_size: file.size,
-          content_type: file.type || null,
+          content_type: resolvedType,
           uploaded_by: uid,
         });
         if (insertError) {
@@ -92,12 +112,17 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
     setError(null);
     const { data, error: urlError } = await supabase.storage
       .from(BUCKET)
-      .createSignedUrl(doc.storage_path, 60);
+      .createSignedUrl(doc.storage_path, 60, { download: doc.file_name });
     if (urlError || !data) {
       setError(getErrorMessage(urlError, "Could not open the document"));
       return;
     }
-    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    const link = document.createElement("a");
+    link.href = data.signedUrl;
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   }
 
   async function handleDelete(doc: VendorDocument) {
@@ -142,6 +167,7 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
           type="button"
           variant="outline"
           size="sm"
+          aria-label="Upload documents"
           disabled={uploading}
           onClick={() => fileInputRef.current?.click()}
         >
