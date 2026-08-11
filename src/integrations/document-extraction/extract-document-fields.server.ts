@@ -66,7 +66,7 @@ export async function extractDocumentFields(input: {
     const bytes = new Uint8Array(await data.arrayBuffer());
 
     const result = await generateText({
-      model: google("gemini-2.5-flash"),
+      model: google("gemini-3.5-flash"),
       output: Output.object({ schema: extractionSchema }),
       messages: [
         {
