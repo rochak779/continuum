@@ -1,9 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, Loader2, Send, X } from "lucide-react";
+import Markdown from "react-markdown";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { assistantChatFn } from "@/integrations/assistant/chat-fn";
+
+// Assistant replies are chat prose, not documents -- render only inline
+// emphasis, line breaks and short lists. Headings/rules/tables are
+// intentionally unmapped (fall through as plain text) so a model that
+// drifts back into report-style markdown doesn't render a heading or a
+// horizontal rule inside a chat bubble.
+const MARKDOWN_COMPONENTS = {
+  h1: "p",
+  h2: "p",
+  h3: "p",
+  h4: "p",
+  h5: "p",
+  h6: "p",
+  hr: () => null,
+  a: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+} as const;
 
 type ChatMessage = { id: number; role: "user" | "assistant"; text: string; isLocal?: boolean };
 
@@ -92,13 +109,20 @@ export function AssistantWidget() {
           <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {messages.map((m) => (
               <div key={m.id} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
-                <p
-                  className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                    m.role === "user" ? "bg-primary text-primary-foreground" : "text-foreground"
-                  }`}
-                >
-                  {m.text}
-                </p>
+                {m.role === "user" ? (
+                  <p className="max-w-[85%] rounded-2xl bg-primary px-3 py-2 text-sm text-primary-foreground">
+                    {m.text}
+                  </p>
+                ) : (
+                  <div
+                    className="max-w-[85%] rounded-2xl px-3 py-2 text-sm text-foreground
+                      [&_p]:my-1.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0
+                      [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-4
+                      [&_li]:my-0.5 [&_strong]:font-semibold"
+                  >
+                    <Markdown components={MARKDOWN_COMPONENTS}>{m.text}</Markdown>
+                  </div>
+                )}
               </div>
             ))}
             {sending && (
