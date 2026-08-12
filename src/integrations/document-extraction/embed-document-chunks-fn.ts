@@ -30,6 +30,15 @@ export const embedDocumentChunksFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator(validateInput)
   .handler(async ({ data, context }) => {
+    const { data: doc, error: docError } = await context.supabase
+      .from("vendor_documents")
+      .select("id")
+      .eq("id", data.vendorDocumentId)
+      .eq("vendor_id", data.vendorId)
+      .maybeSingle();
+    if (docError) throw docError;
+    if (!doc) throw new Error("Document not found or does not belong to this vendor");
+
     const { embedAndStoreDocumentChunks } = await import("./embed-and-store-chunks.server");
     return embedAndStoreDocumentChunks(context.supabase, {
       vendorDocumentId: data.vendorDocumentId,
