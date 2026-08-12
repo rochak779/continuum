@@ -55,6 +55,10 @@ export interface PersistedChangeEvent extends ChangeEventRecord {
   id: string;
 }
 
+export interface PersistedAlert extends AlertRecord {
+  id: string;
+}
+
 export interface FailureRecord {
   vendorId: string;
   companyNumber: string;
@@ -82,7 +86,16 @@ export interface MonitoringStore {
   insertChangeEvents(
     records: ChangeEventRecord[],
   ): Promise<{ inserted: number; events: PersistedChangeEvent[] }>;
-  insertAlerts(records: AlertRecord[]): Promise<{ inserted: number }>;
+  insertAlerts(records: AlertRecord[]): Promise<{ inserted: PersistedAlert[] }>;
+  /**
+   * Best-effort side channel: send an email to the vendor's owner about
+   * newly-inserted critical alerts. MUST NOT throw — implementations are
+   * responsible for catching and logging their own failures (missing
+   * owner email, provider error, etc.) so a notification failure can never
+   * regress the monitoring pipeline itself, the same isolation guarantee
+   * this interface already gives failed provider fetches.
+   */
+  notifyCriticalAlerts(records: PersistedAlert[]): Promise<void>;
   recordFailure(record: FailureRecord): Promise<void>;
   setMonitoringStatus(vendorId: string, status: "monitoring" | "failing"): Promise<void>;
 }
@@ -243,7 +256,12 @@ export async function runCompaniesHouseCheck(
 
     const alertRecords = buildActionableAlerts(persisted.events);
     const { inserted } = await store.insertAlerts(alertRecords);
-    alertsCreated = inserted;
+    alertsCreated = inserted.length;
+
+    const criticalAlerts = inserted.filter((alert) => alert.severity === "critical");
+    if (criticalAlerts.length > 0) {
+      await store.notifyCriticalAlerts(criticalAlerts);
+    }
   }
 
   await store.setMonitoringStatus(vendorId, "monitoring");

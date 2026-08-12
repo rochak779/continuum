@@ -6,6 +6,7 @@ import {
   type ChangeEventRecord,
   type FailureRecord,
   type MonitoringStore,
+  type PersistedAlert,
   type SnapshotRecord,
   type TrustProfileAttributeRecord,
 } from "./monitor";
@@ -85,13 +86,17 @@ function lifecycleStore() {
       };
     },
     async insertAlerts(records) {
-      let inserted = 0;
+      const inserted: PersistedAlert[] = [];
       for (const record of records) {
         if (alerts.some((alert) => alert.changeEventId === record.changeEventId)) continue;
-        alerts.push({ ...record, id: `alert-${alerts.length + 1}`, status: "open" });
-        inserted += 1;
+        const persisted: StoredAlert = { ...record, id: `alert-${alerts.length + 1}`, status: "open" };
+        alerts.push(persisted);
+        inserted.push(persisted);
       }
       return { inserted };
+    },
+    async notifyCriticalAlerts() {
+      // no-op: this test file focuses on the alert lifecycle, not notification delivery
     },
     async recordFailure(record) {
       failures.push(record);
