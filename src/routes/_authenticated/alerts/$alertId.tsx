@@ -1,12 +1,11 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 
 import { AppShell } from "@/components/app/AppShell";
-import { AlertResolutionPanel } from "@/components/app/AlertResolutionPanel";
 import { SeverityChip, StatusChip } from "./index";
 import { supabase } from "@/integrations/supabase/client";
+import { alertAttributeLabel } from "@/lib/alert-labels";
 
 export const Route = createFileRoute("/_authenticated/alerts/$alertId")({
   head: () => ({
@@ -22,82 +21,56 @@ export const Route = createFileRoute("/_authenticated/alerts/$alertId")({
   component: AlertDetailPage,
 });
 
-// `alerts` / `change_events` / `vendors` (its new shape) predate the
-// generated Database types — same untyped-client pattern used server-side
-// in src/integrations/*/*.server.ts (see docs there for why).
-const db = supabase as unknown as SupabaseClient;
-
 interface AlertDetailRow {
   id: string;
-  severity: "critical" | "attention" | "info";
-  status: "open" | "investigating" | "resolved";
-  title: string;
-  description: string;
-  recommended_action: string;
-  created_at: string;
+  severity: string;
+  status: string;
+  attribute_checked: string;
+  previous_value: string | null;
+  new_value: string | null;
+  source: string;
+  checked_at: string;
+  detected_at: string;
   resolved_at: string | null;
-  resolution_type: "verified_accepted" | "false_positive" | "risk_accepted" | null;
-  resolution_reason: string | null;
+  resolution_type: string | null;
   vendor_id: string;
-  vendors: { id: string; display_name: string | null; legal_name: string } | null;
-  change_events: {
-    id: string;
-    attribute_key: string;
-    previous_value: unknown;
-    new_value: unknown;
-    materiality_reason: string;
-    provider: string;
-    detected_at: string;
-  } | null;
+  vendors: { company_name: string } | null;
 }
 
 function vendorName(vendor: AlertDetailRow["vendors"]): string {
-  if (!vendor) return "Unknown vendor";
-  return vendor.display_name ?? vendor.legal_name;
+  return vendor?.company_name ?? "Unknown vendor";
 }
 
-/** previous_value/new_value are jsonb — render plainly if it's already a string, else stringify. */
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined) return "∅";
-  if (typeof value === "string") return value;
-  return JSON.stringify(value);
-}
+const RESOLUTION_LABELS: Record<string, string> = {
+  verified_accepted: "Verified / Accepted",
+  false_positive: "False Positive",
+  risk_accepted: "Risk Accepted / Exception",
+};
 
 function AlertDetailPage() {
   const { alertId } = Route.useParams();
-  const { user } = Route.useRouteContext();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
-  const alertQueryKey = ["alerts", "detail", alertId];
   const {
     data: alert,
     isLoading,
     error,
   } = useQuery({
-    queryKey: alertQueryKey,
+    queryKey: ["alerts", "detail", alertId],
     queryFn: async () => {
-      const { data, error: queryError } = await db
-        .from("alerts")
+      const { data, error: queryError } = await supabase
+        .from("vendor_monitoring_alerts")
         .select(
-          `id, severity, status, title, description, recommended_action, created_at,
-           resolved_at, resolution_type, resolution_reason, vendor_id,
-           vendors ( id, display_name, legal_name ),
-           change_events (
-             id, attribute_key, previous_value, new_value, materiality_reason, provider, detected_at
-           )`,
+          `id, severity, status, attribute_checked, previous_value, new_value, source,
+           checked_at, detected_at, resolved_at, resolution_type, vendor_id,
+           vendors ( company_name )`,
         )
         .eq("id", alertId)
         .maybeSingle();
       if (queryError) throw queryError;
-      return data as unknown as AlertDetailRow | null;
+      return data as AlertDetailRow | null;
     },
   });
-
-  async function handleResolved() {
-    await queryClient.invalidateQueries({ queryKey: alertQueryKey });
-    await queryClient.invalidateQueries({ queryKey: ["alerts", "list"] });
-  }
 
   return (
     <AppShell>
@@ -122,7 +95,9 @@ function AlertDetailPage() {
           <>
             <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold tracking-tight text-foreground">{alert.title}</h1>
+                <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                  {alertAttributeLabel(alert.attribute_checked)} change
+                </h1>
                 <p className="mt-1 text-sm text-muted-foreground">{vendorName(alert.vendors)}</p>
               </div>
               <div className="flex items-center gap-2">
@@ -138,45 +113,29 @@ function AlertDetailPage() {
 
                   <dl className="mt-4 grid gap-4 sm:grid-cols-2">
                     <Field label="Vendor" value={vendorName(alert.vendors)} />
-                    <Field label="Source" value={alert.change_events?.provider ?? "—"} />
-                    <Field
-                      label="Previous value"
-                      value={formatValue(alert.change_events?.previous_value)}
-                    />
-                    <Field label="New value" value={formatValue(alert.change_events?.new_value)} />
+                    <Field label="Source" value={alert.source} />
+                    <Field label="Attribute" value={alertAttributeLabel(alert.attribute_checked)} />
                     <Field
                       label="Detected"
-                      value={
-                        alert.change_events?.detected_at
-                          ? new Date(alert.change_events.detected_at).toLocaleString()
-                          : "—"
-                      }
+                      value={new Date(alert.detected_at).toLocaleString()}
                     />
-                    <Field label="Attribute" value={alert.change_events?.attribute_key ?? "—"} />
+                    <Field label="Previous value" value={alert.previous_value ?? "∅"} />
+                    <Field label="New value" value={alert.new_value ?? "∅"} />
                   </dl>
-
-                  <div className="mt-6 border-t border-border pt-6">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                      Materiality reason
-                    </h3>
-                    <p className="mt-2 text-sm text-foreground">
-                      {alert.change_events?.materiality_reason ?? alert.description}
-                    </p>
-                  </div>
-
-                  <div className="mt-6 border-t border-border pt-6">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                      Recommended action
-                    </h3>
-                    <p className="mt-2 text-sm text-foreground">{alert.recommended_action}</p>
-                  </div>
                 </div>
 
                 {alert.status === "resolved" && (
                   <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
                     <h2 className="text-lg font-bold text-foreground">Resolution history</h2>
                     <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-                      <Field label="Resolution" value={alert.resolution_type ?? "—"} />
+                      <Field
+                        label="Resolution"
+                        value={
+                          alert.resolution_type
+                            ? (RESOLUTION_LABELS[alert.resolution_type] ?? alert.resolution_type)
+                            : "—"
+                        }
+                      />
                       <Field
                         label="Resolved at"
                         value={
@@ -184,22 +143,19 @@ function AlertDetailPage() {
                         }
                       />
                     </dl>
-                    {alert.resolution_reason && (
-                      <p className="mt-4 text-sm text-foreground">{alert.resolution_reason}</p>
-                    )}
                   </div>
                 )}
               </div>
 
               <div>
-                {user && (
-                  <AlertResolutionPanel
-                    alertId={alert.id}
-                    status={alert.status}
-                    actorId={user.id}
-                    onResolved={() => void handleResolved()}
-                  />
-                )}
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
+                  <h2 className="text-lg font-bold text-foreground">Resolution</h2>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {alert.status === "resolved"
+                      ? "This alert has already been resolved."
+                      : "Resolving alerts from here is being rebuilt against the current schema and isn't available yet."}
+                  </p>
+                </div>
               </div>
             </div>
           </>

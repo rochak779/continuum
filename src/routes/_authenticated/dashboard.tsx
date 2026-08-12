@@ -27,6 +27,7 @@ import {
   latestFailureByVendor,
   normalizeAlertSeverity,
 } from "@/lib/dashboard-data";
+import { alertAttributeLabel, describeAlertReason } from "@/lib/alert-labels";
 import { VendorStatusBadge } from "@/components/app/VendorStatusBadge";
 import { VENDOR_HEALTH_LABELS, type VendorHealth } from "@/lib/vendor-health";
 import type { Json } from "@/integrations/supabase/types";
@@ -59,31 +60,11 @@ const HEALTH_COLORS: Record<VendorHealth, string> = {
   monitoring_issue: "var(--muted-foreground)",
 };
 
-const ATTRIBUTE_LABELS: Record<string, string> = {
-  company_status: "Company Status",
-  company_name: "Company Name",
-  registered_address: "Address",
-  sic_codes: "SIC Codes",
-  accounts_status: "Accounts Filing",
-  confirmation_statement_status: "Confirmation Statement",
-};
-
 function displayValue(value: Json | null): string {
   if (value === null) return "Not provided";
   if (Array.isArray(value)) return value.join(", ");
   if (typeof value === "object") return Object.values(value).filter(Boolean).join(", ");
   return String(value);
-}
-
-function describeAlertReason(alert: {
-  attribute_checked: string;
-  previous_value: string | null;
-  new_value: string | null;
-}): string {
-  const label = ATTRIBUTE_LABELS[alert.attribute_checked] ?? alert.attribute_checked;
-  const previous = alert.previous_value ?? "unset";
-  const next = alert.new_value ?? "unset";
-  return `${label} changed from ${previous} to ${next}.`;
 }
 
 function initials(name: string) {
@@ -174,7 +155,7 @@ function DashboardPage() {
   const upcomingExpiries = buildUpcomingExpiries(documents, vendorNames);
   const alertsByType = Object.entries(
     alerts.reduce<Record<string, number>>((counts, alert) => {
-      const key = ATTRIBUTE_LABELS[alert.attribute_checked] ?? alert.attribute_checked;
+      const key = alertAttributeLabel(alert.attribute_checked);
       counts[key] = (counts[key] ?? 0) + 1;
       return counts;
     }, {}),
@@ -187,7 +168,7 @@ function DashboardPage() {
   }));
   const actionable = alerts.slice(0, 5).map((alert) => ({
     id: alert.id,
-    task: `Review ${ATTRIBUTE_LABELS[alert.attribute_checked] ?? alert.attribute_checked} change`,
+    task: `Review ${alertAttributeLabel(alert.attribute_checked)} change`,
     reason: describeAlertReason(alert),
     vendor: vendorNames.get(alert.vendor_id) ?? "Unknown vendor",
     priority: alert.severity === "critical" ? "High" : "Medium",
@@ -392,7 +373,7 @@ function DashboardPage() {
                           {vendorNames.get(change.vendor_id) ?? "Unknown vendor"}
                         </span>{" "}
                         <span className="text-muted-foreground">
-                          {ATTRIBUTE_LABELS[change.attribute_key] ?? change.attribute_key} changed
+                          {alertAttributeLabel(change.attribute_key)} changed
                         </span>
                       </p>
                       <p className="text-sm text-muted-foreground">
