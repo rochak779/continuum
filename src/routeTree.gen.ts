@@ -14,7 +14,9 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as AuthenticatedChangesRouteImport } from './routes/_authenticated/changes'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedExpiriesRouteImport } from './routes/_authenticated/expiries'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedAlertsIndexRouteImport } from './routes/_authenticated/alerts/index'
 import { Route as AuthenticatedAlertsAlertIdRouteImport } from './routes/_authenticated/alerts/$alertId'
@@ -48,9 +50,19 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedChangesRoute = AuthenticatedChangesRouteImport.update({
+  id: '/changes',
+  path: '/changes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedExpiriesRoute = AuthenticatedExpiriesRouteImport.update({
+  id: '/expiries',
+  path: '/expiries',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
@@ -105,7 +117,9 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/changes': typeof AuthenticatedChangesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/expiries': typeof AuthenticatedExpiriesRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/alerts/$alertId': typeof AuthenticatedAlertsAlertIdRoute
   '/vendors/$vendorId': typeof AuthenticatedVendorsVendorIdRoute
@@ -120,7 +134,9 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/changes': typeof AuthenticatedChangesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/expiries': typeof AuthenticatedExpiriesRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/alerts/$alertId': typeof AuthenticatedAlertsAlertIdRoute
   '/vendors/$vendorId': typeof AuthenticatedVendorsVendorIdRoute
@@ -137,7 +153,9 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/_authenticated/changes': typeof AuthenticatedChangesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/expiries': typeof AuthenticatedExpiriesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/alerts/$alertId': typeof AuthenticatedAlertsAlertIdRoute
   '/_authenticated/vendors/$vendorId': typeof AuthenticatedVendorsVendorIdRoute
@@ -154,7 +172,9 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/signup'
+    | '/changes'
     | '/dashboard'
+    | '/expiries'
     | '/settings'
     | '/alerts/$alertId'
     | '/vendors/$vendorId'
@@ -169,7 +189,9 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/signup'
+    | '/changes'
     | '/dashboard'
+    | '/expiries'
     | '/settings'
     | '/alerts/$alertId'
     | '/vendors/$vendorId'
@@ -185,7 +207,9 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/signup'
+    | '/_authenticated/changes'
     | '/_authenticated/dashboard'
+    | '/_authenticated/expiries'
     | '/_authenticated/settings'
     | '/_authenticated/alerts/$alertId'
     | '/_authenticated/vendors/$vendorId'
@@ -241,11 +265,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/changes': {
+      id: '/_authenticated/changes'
+      path: '/changes'
+      fullPath: '/changes'
+      preLoaderRoute: typeof AuthenticatedChangesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/expiries': {
+      id: '/_authenticated/expiries'
+      path: '/expiries'
+      fullPath: '/expiries'
+      preLoaderRoute: typeof AuthenticatedExpiriesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings': {
@@ -308,7 +346,9 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedChangesRoute: typeof AuthenticatedChangesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedExpiriesRoute: typeof AuthenticatedExpiriesRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedAlertsAlertIdRoute: typeof AuthenticatedAlertsAlertIdRoute
   AuthenticatedVendorsVendorIdRoute: typeof AuthenticatedVendorsVendorIdRoute
@@ -320,7 +360,9 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedChangesRoute: AuthenticatedChangesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedExpiriesRoute: AuthenticatedExpiriesRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedAlertsAlertIdRoute: AuthenticatedAlertsAlertIdRoute,
   AuthenticatedVendorsVendorIdRoute: AuthenticatedVendorsVendorIdRoute,
