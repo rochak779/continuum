@@ -319,7 +319,7 @@ function DashboardPage() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Panel title="Upcoming Reviews & Expiries" action="View All">
+        <Panel title="Upcoming Reviews & Expiries" action={{ label: "View All", to: "/expiries" }}>
           {isLoading ? (
             <PanelState>Loading upcoming expiries…</PanelState>
           ) : upcomingExpiries.length === 0 ? (
@@ -345,7 +345,7 @@ function DashboardPage() {
           )}
         </Panel>
 
-        <Panel title="Recent Material Changes" action="View All">
+        <Panel title="Recent Material Changes" action={{ label: "View All", to: "/changes" }}>
           {isLoading ? (
             <PanelState>Loading recent changes…</PanelState>
           ) : changes.length === 0 ? (
@@ -384,7 +384,7 @@ function DashboardPage() {
       </div>
 
       <div className="mt-6">
-        <Panel title="Actions Requiring Attention" action="View All Tasks">
+        <Panel title="Actions Requiring Attention" action={{ label: "View All Tasks", to: "/alerts" }}>
           {isLoading ? (
             <PanelState>Loading open alerts…</PanelState>
           ) : actionable.length === 0 ? (
@@ -558,7 +558,7 @@ function Panel({
   children,
 }: {
   title: string;
-  action?: string;
+  action?: { label: string; to: "/alerts" | "/changes" | "/expiries" };
   children: React.ReactNode;
 }) {
   return (
@@ -566,9 +566,9 @@ function Panel({
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-bold text-foreground">{title}</h2>
         {action && (
-          <button type="button" className="text-sm font-semibold text-primary hover:underline">
-            {action}
-          </button>
+          <Link to={action.to} className="text-sm font-semibold text-primary hover:underline">
+            {action.label}
+          </Link>
         )}
       </div>
       {children}
