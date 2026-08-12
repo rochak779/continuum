@@ -26,8 +26,11 @@ export async function embedAndStoreDocumentChunks(
       {
         async embedChunks(chunks) {
           const { embeddings } = await embedMany({
-            model: google.textEmbeddingModel("text-embedding-004"),
+            model: google.textEmbeddingModel("gemini-embedding-001"),
             values: chunks,
+            providerOptions: {
+              google: { outputDimensionality: 768, taskType: "RETRIEVAL_DOCUMENT" },
+            },
           });
           return embeddings;
         },

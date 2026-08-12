@@ -22,6 +22,7 @@ import { embed } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { calculateVendorHealth, type HealthAlert, type MonitoringStatus } from "@/lib/vendor-health";
+import { MAX_CHUNKS } from "./tools";
 import type {
   AssistantDataStore,
   DocumentChunkMatch,
@@ -40,7 +41,8 @@ export function createSupabaseAssistantStore(db: ScopedClient): AssistantDataSto
     async listVendors() {
       const { data: vendors, error: vendorsError } = await db
         .from("vendors")
-        .select("id, company_name, category, country, risk_level, monitoring_status");
+        .select("id, company_name, category, country, risk_level, monitoring_status")
+        .limit(100);
       if (vendorsError) throw vendorsError;
 
       const { data: alerts, error: alertsError } = await db
@@ -150,6 +152,7 @@ export function createSupabaseAssistantStore(db: ScopedClient): AssistantDataSto
         .order("detected_at", { ascending: false });
       if (severity) query = query.eq("severity", severity);
       if (vendorId) query = query.eq("vendor_id", vendorId);
+      query = query.limit(100);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -211,17 +214,26 @@ export function createSupabaseAssistantStore(db: ScopedClient): AssistantDataSto
 
     async searchVendorDocuments(query, vendorId, callerId) {
       const { embedding } = await embed({
-        model: google.textEmbeddingModel("text-embedding-004"),
+        model: google.textEmbeddingModel("gemini-embedding-001"),
         value: query,
+        providerOptions: {
+          google: { outputDimensionality: 768, taskType: "RETRIEVAL_QUERY" },
+        },
       });
 
       const { data, error } = await db.rpc("match_document_chunks", {
         query_embedding: embedding,
         match_owner_id: callerId,
         match_vendor_id: vendorId,
-        match_count: 5,
+        match_count: MAX_CHUNKS,
       });
       if (error) throw error;
+
+      // Similarity floor: match_document_chunks always returns its top N
+      // rows regardless of actual relevance -- filter out chunks that are
+      // only weakly related rather than surfacing them as if relevant.
+      // 0.5 is a conservative cosine-similarity cutoff for this model.
+      const SIMILARITY_THRESHOLD = 0.5;
 
       return (
         (data ?? []) as Array<{
@@ -231,15 +243,17 @@ export function createSupabaseAssistantStore(db: ScopedClient): AssistantDataSto
           content: string;
           similarity: number;
         }>
-      ).map(
-        (row): DocumentChunkMatch => ({
-          vendorId: row.vendor_id,
-          vendorName: row.vendor_name,
-          fileName: row.file_name,
-          content: row.content,
-          similarity: row.similarity,
-        }),
-      );
+      )
+        .filter((row) => row.similarity > SIMILARITY_THRESHOLD)
+        .map(
+          (row): DocumentChunkMatch => ({
+            vendorId: row.vendor_id,
+            vendorName: row.vendor_name,
+            fileName: row.file_name,
+            content: row.content,
+            similarity: row.similarity,
+          }),
+        );
     },
   };
 }

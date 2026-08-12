@@ -20,7 +20,7 @@ import type {
 } from "./store";
 
 const MAX_ROWS = 20;
-const MAX_CHUNKS = 5;
+export const MAX_CHUNKS = 5;
 
 export type ToolResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
