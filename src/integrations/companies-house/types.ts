@@ -58,6 +58,7 @@ export interface NormalisedCompanySnapshot {
   accountsNextDue: string | null;
   accountsStatus: string | null;
   confirmationStatementNextDue: string | null;
+  confirmationStatementStatus: string | null;
   sicCodes: string[];
 }
 

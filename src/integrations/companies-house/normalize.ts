@@ -36,6 +36,19 @@ function deriveAccountsStatus(profile: CompaniesHouseRawProfile): string | null 
   return null;
 }
 
+/**
+ * Derive a coarse confirmation statement status, mirroring
+ * `deriveAccountsStatus` — Companies House returns an `overdue` flag rather
+ * than a single status field here either.
+ */
+function deriveConfirmationStatementStatus(profile: CompaniesHouseRawProfile): string | null {
+  const confirmationStatement = profile.confirmation_statement;
+  if (!confirmationStatement) return null;
+  if (confirmationStatement.overdue === true) return "overdue";
+  if (confirmationStatement.next_due) return "due";
+  return null;
+}
+
 export function normaliseCompanyProfile(
   profile: CompaniesHouseRawProfile,
 ): NormalisedCompanySnapshot {
@@ -63,6 +76,7 @@ export function normaliseCompanyProfile(
       cleanString(profile.accounts?.next_accounts?.due_on),
     accountsStatus: deriveAccountsStatus(profile),
     confirmationStatementNextDue: cleanString(profile.confirmation_statement?.next_due),
+    confirmationStatementStatus: deriveConfirmationStatementStatus(profile),
     sicCodes: [...sicCodes].sort(),
   };
 }

@@ -30,6 +30,16 @@ function statusSeverity(next: JsonValue): Severity {
   return isCritical ? "critical" : "attention";
 }
 
+// Overdue-status fields (accounts, confirmation statement) only warrant a
+// review when they become overdue. A recovery (overdue -> due/filed) is good
+// news, not something the vendor owner needs to act on, so it's Informational
+// rather than Attention — unlike company_status, where even a recovery from a
+// risk status is still Attention (see companyStatusOtherChange in the
+// materiality rules).
+function overdueStatusSeverity(next: JsonValue): Severity {
+  return next === "overdue" ? "attention" : "info";
+}
+
 function canonicalJson(value: JsonValue): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
@@ -57,6 +67,8 @@ export function monitoredSnapshotValues(snapshot: NormalisedCompanySnapshot): Tr
         )
       : null,
     sic_codes: snapshot.sicCodes,
+    accounts_status: snapshot.accountsStatus,
+    confirmation_statement_status: snapshot.confirmationStatementStatus,
   };
 }
 
@@ -72,6 +84,8 @@ export function detectChanges(
     "company_name",
     "registered_address",
     "sic_codes",
+    "accounts_status",
+    "confirmation_statement_status",
   ] as const) {
     const previousValue = trustProfile[attribute] ?? null;
     const newValue = observed[attribute] ?? null;
@@ -80,7 +94,12 @@ export function detectChanges(
       attribute,
       previousValue,
       newValue,
-      severity: attribute === "company_status" ? statusSeverity(newValue) : "attention",
+      severity:
+        attribute === "company_status"
+          ? statusSeverity(newValue)
+          : attribute === "accounts_status" || attribute === "confirmation_statement_status"
+            ? overdueStatusSeverity(newValue)
+            : "attention",
     });
   }
 
