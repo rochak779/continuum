@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Plus } from "lucide-react";
@@ -100,6 +100,7 @@ function VendorsPage() {
                 <th className="px-6 py-4">Risk</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Documents</th>
+                <th className="px-6 py-4">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -120,6 +121,15 @@ function VendorsPage() {
                   </td>
                   <td className="px-6 py-4">
                     <VendorDocumentsCell vendorId={v.id} />
+                  </td>
+                  <td className="px-6 py-4">
+                    <Link
+                      to="/vendors/$vendorId"
+                      params={{ vendorId: v.id }}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      View Details
+                    </Link>
                   </td>
                 </tr>
               ))}
