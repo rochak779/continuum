@@ -22,6 +22,7 @@ function ok(): CheckOutcome {
       accountsNextDue: null,
       accountsStatus: null,
       confirmationStatementNextDue: null,
+      confirmationStatementStatus: null,
       sicCodes: [],
     },
     changes: [],

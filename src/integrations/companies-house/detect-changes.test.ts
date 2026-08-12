@@ -61,6 +61,36 @@ describe("detectChanges", () => {
     expect(changes[0]?.severity).toBe("critical");
   });
 
+  it("flags accounts becoming overdue as attention", () => {
+    const changes = detectChanges(
+      monitoredSnapshotValues(snapshot()),
+      snapshot({ accounts: { overdue: true } }),
+    );
+    const accountsChange = changes.find((change) => change.attribute === "accounts_status");
+    expect(accountsChange).toEqual({
+      attribute: "accounts_status",
+      previousValue: null,
+      newValue: "overdue",
+      severity: "attention",
+    });
+  });
+
+  it("flags the confirmation statement becoming overdue as attention", () => {
+    const changes = detectChanges(
+      monitoredSnapshotValues(snapshot()),
+      snapshot({ confirmation_statement: { overdue: true } }),
+    );
+    const confirmationChange = changes.find(
+      (change) => change.attribute === "confirmation_statement_status",
+    );
+    expect(confirmationChange).toEqual({
+      attribute: "confirmation_statement_status",
+      previousValue: null,
+      newValue: "overdue",
+      severity: "attention",
+    });
+  });
+
   it("builds the same key for equivalent object states regardless of key order", () => {
     const a = buildChangeDedupeKey("vendor-1", "companies_house", {
       attribute: "registered_address",

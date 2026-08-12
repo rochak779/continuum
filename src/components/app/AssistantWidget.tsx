@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, Send, X } from "lucide-react";
+import { Bot, Loader2, Send, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { assistantChatFn } from "@/integrations/assistant/chat-fn";
 
-type ChatMessage = { id: number; role: "user" | "assistant"; text: string };
+type ChatMessage = { id: number; role: "user" | "assistant"; text: string; isLocal?: boolean };
 
 const initialMessages: ChatMessage[] = [
   {
     id: 0,
     role: "assistant",
     text: "Hi! I'm your Continuum assistant. Ask me about vendor risk, alerts or upcoming reviews.",
+    isLocal: true,
   },
 ];
 
@@ -18,6 +20,7 @@ export function AssistantWidget() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -29,21 +32,39 @@ export function AssistantWidget() {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [messages]);
 
-  function handleSend(e: React.FormEvent) {
+  async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     const text = input.trim();
-    if (!text) return;
-    setMessages((prev) => [
-      ...prev,
-      { id: prev.length, role: "user", text },
-      {
-        id: prev.length + 1,
-        role: "assistant",
-        text: "I'm not connected to a model yet — hook me up to an AI backend and I'll answer vendor questions here.",
-      },
-    ]);
+    if (!text || sending) return;
+
+    const nextMessages: ChatMessage[] = [...messages, { id: messages.length, role: "user", text }];
+    setMessages(nextMessages);
     setInput("");
-    inputRef.current?.focus();
+    setSending(true);
+
+    try {
+      const result = await assistantChatFn({
+        data: {
+          messages: nextMessages.filter((m) => !m.isLocal).map((m) => ({ role: m.role, text: m.text })),
+        },
+      });
+      setMessages((current) => [...current, { id: current.length, role: "assistant", text: result.text }]);
+    } catch {
+      // User-facing chat prose -- never surface raw error text (which may
+      // contain internal Supabase/env details) in a chat bubble.
+      setMessages((current) => [
+        ...current,
+        {
+          id: current.length,
+          role: "assistant",
+          text: "Something went wrong, try again.",
+          isLocal: true,
+        },
+      ]);
+    } finally {
+      setSending(false);
+      inputRef.current?.focus();
+    }
   }
 
   return (
@@ -70,21 +91,22 @@ export function AssistantWidget() {
 
           <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {messages.map((m) => (
-              <div
-                key={m.id}
-                className={m.role === "user" ? "flex justify-end" : "flex justify-start"}
-              >
+              <div key={m.id} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
                 <p
                   className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                    m.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-foreground"
+                    m.role === "user" ? "bg-primary text-primary-foreground" : "text-foreground"
                   }`}
                 >
                   {m.text}
                 </p>
               </div>
             ))}
+            {sending && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Thinking…
+              </div>
+            )}
             <div ref={endRef} />
           </div>
 
@@ -94,9 +116,16 @@ export function AssistantWidget() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask about a vendor..."
+              disabled={sending}
               className="h-10"
             />
-            <Button type="submit" size="icon" className="h-10 w-10 shrink-0" aria-label="Send">
+            <Button
+              type="submit"
+              size="icon"
+              className="h-10 w-10 shrink-0"
+              aria-label="Send"
+              disabled={sending || !input.trim()}
+            >
               <Send className="h-4 w-4" />
             </Button>
           </form>

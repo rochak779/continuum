@@ -1,10 +1,12 @@
 // src/integrations/document-extraction/extract-document-fields.server.ts
 //
 // Server-only: downloads a document from the private vendor-documents
-// Storage bucket and asks Gemini to identify what the document is and
-// when it expires. Best-effort — any failure (download, model call,
-// malformed response) resolves to nulls rather than throwing, since
-// extraction must never block the upload it's attached to.
+// Storage bucket and asks Gemini to identify what the document is, when it
+// expires, and to transcribe its full text (used later to embed the
+// document for the AI assistant's semantic search --
+// embed-and-store-chunks.server.ts). Best-effort — any failure (download,
+// model call, malformed response) resolves to nulls rather than throwing,
+// since extraction must never block the upload it's attached to.
 //
 // Only called for content types Gemini can read directly as a file part
 // (PDF and common image types). Word/Excel uploads never reach this
@@ -34,14 +36,21 @@ const extractionSchema = z.object({
     .describe(
       "The document's expiration/expiry date as an ISO date string (YYYY-MM-DD), if the document states one. Null if the document has no expiry date or none is stated. Do not confuse with an issue date, effective date, or signing date.",
     ),
+  extractedText: z
+    .string()
+    .nullable()
+    .describe(
+      "The document's full text content, transcribed as plain text. Null if the document contains no readable text (e.g. a blank page or unreadable scan).",
+    ),
 });
 
 export interface ExtractedDocumentFields {
   itemLabel: string | null;
   expiryDate: string | null;
+  extractedText: string | null;
 }
 
-const NULL_RESULT: ExtractedDocumentFields = { itemLabel: null, expiryDate: null };
+const NULL_RESULT: ExtractedDocumentFields = { itemLabel: null, expiryDate: null, extractedText: null };
 
 export function isExtractableContentType(contentType: string | null | undefined): boolean {
   return Boolean(contentType && EXTRACTABLE_CONTENT_TYPES.has(contentType));
@@ -74,7 +83,7 @@ export async function extractDocumentFields(input: {
           content: [
             {
               type: "text",
-              text: "Identify what kind of document this is and, if stated, its expiry/expiration date. This is a vendor compliance document (e.g. insurance certificate, license, contract).",
+              text: "Identify what kind of document this is, its expiry/expiration date if stated, and transcribe its full text content. This is a vendor compliance document (e.g. insurance certificate, license, contract).",
             },
             {
               type: "file",
@@ -89,6 +98,7 @@ export async function extractDocumentFields(input: {
     return {
       itemLabel: result.output.itemLabel,
       expiryDate: normalizeExtractedDate(result.output.expiryDate),
+      extractedText: result.output.extractedText,
     };
   } catch (err) {
     console.error("[document-extraction] Extraction failed:", err);

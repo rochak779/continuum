@@ -243,6 +243,7 @@ describe("createCompaniesHouseProvider normalize", () => {
       accountsNextDue: "2027-01-01",
       accountsStatus: "due",
       confirmationStatementNextDue: "2026-06-01",
+      confirmationStatementStatus: "due",
       sicCodes: ["65110"],
     });
   });

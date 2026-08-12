@@ -64,6 +64,8 @@ const ATTRIBUTE_LABELS: Record<string, string> = {
   company_name: "Company Name",
   registered_address: "Address",
   sic_codes: "SIC Codes",
+  accounts_status: "Accounts Filing",
+  confirmation_statement_status: "Confirmation Statement",
 };
 
 function displayValue(value: Json | null): string {
