@@ -23,9 +23,13 @@ CREATE TABLE public.document_chunks (
 
 CREATE INDEX document_chunks_vendor_document_idx ON public.document_chunks(vendor_document_id);
 CREATE INDEX document_chunks_owner_idx ON public.document_chunks(owner_id);
--- ivfflat needs rows to build a good index; fine to create now near-empty
--- and let it improve as data grows -- same trade-off Supabase's own docs
--- make for this pattern.
+-- NOTE: this ivfflat index was superseded by an hnsw index in
+-- 20260812000000_document_chunks_hnsw_index.sql. ivfflat's centroids are
+-- computed via k-means at build time; building it here against an empty
+-- table produces degenerate centroids that do NOT self-correct as data
+-- grows, contrary to what an earlier version of this comment claimed. Left
+-- as-is (not rewritten) since this migration has already been applied to
+-- the live database -- see the later migration for the fix and rationale.
 CREATE INDEX document_chunks_embedding_idx ON public.document_chunks
   USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
