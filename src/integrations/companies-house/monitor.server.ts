@@ -15,10 +15,12 @@ import {
   type ChangeEventRecord,
   type FailureRecord,
   type MonitoringStore,
+  type PersistedAlert,
   type PersistedChangeEvent,
   type SnapshotRecord,
   type TrustProfileAttributeRecord,
 } from "./monitor";
+import { notifyCriticalAlertsForVendor } from "../notifications/notify-critical-alerts.server";
 import {
   COMPANIES_HOUSE_SOURCE,
   type CompaniesHouseResult,
@@ -129,10 +131,11 @@ export function createSupabaseMonitoringStore(db: AdminClient): MonitoringStore 
       };
     },
 
-    async insertAlerts(records: AlertRecord[]): Promise<{ inserted: number }> {
-      if (records.length === 0) return { inserted: 0 };
+    async insertAlerts(records: AlertRecord[]): Promise<{ inserted: PersistedAlert[] }> {
+      if (records.length === 0) return { inserted: [] };
       // Idempotent on dedupe_key: existing alerts for the same detected change
-      // are ignored rather than duplicated.
+      // are ignored rather than duplicated. ignoreDuplicates means .select()
+      // below only ever returns rows that were actually newly inserted.
       const { data, error } = await db
         .from("vendor_monitoring_alerts")
         .upsert(
@@ -151,9 +154,29 @@ export function createSupabaseMonitoringStore(db: AdminClient): MonitoringStore 
           })),
           { onConflict: "dedupe_key", ignoreDuplicates: true },
         )
-        .select("id");
+        .select("id,dedupe_key");
       if (error) throw error;
-      return { inserted: data?.length ?? 0 };
+      const recordsByKey = new Map(records.map((r) => [r.dedupeKey, r]));
+      const inserted: PersistedAlert[] = (data ?? []).flatMap((row) => {
+        const record = recordsByKey.get(row.dedupe_key);
+        return record ? [{ ...record, id: row.id }] : [];
+      });
+      return { inserted };
+    },
+
+    async notifyCriticalAlerts(records: PersistedAlert[]): Promise<void> {
+      if (records.length === 0) return;
+      try {
+        await notifyCriticalAlertsForVendor(db, records[0]!.vendorId, records);
+      } catch (error) {
+        // Belt-and-braces: notify-critical-alerts.ts already swallows its
+        // own errors, but this store method must never let a defect there
+        // regress the monitoring pipeline either.
+        console.error("[notifications] notifyCriticalAlerts threw unexpectedly", {
+          vendorId: records[0]?.vendorId,
+          error,
+        });
+      }
     },
 
     async recordFailure(record: FailureRecord): Promise<void> {
@@ -196,7 +219,10 @@ export function createNullStore(): MonitoringStore {
       return { inserted: 0, events: [] };
     },
     async insertAlerts() {
-      return { inserted: 0 };
+      return { inserted: [] };
+    },
+    async notifyCriticalAlerts() {
+      /* dry run: nothing sent */
     },
     async recordFailure() {
       /* dry run: nothing persisted */
