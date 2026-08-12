@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { TrendingDown, UserCog } from "lucide-react";
+import { Info, TrendingDown, UserCog } from "lucide-react";
 
 import { AppShell } from "@/components/app/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,8 +37,24 @@ function vendorName(vendor: ChangeRow["vendors"]): string {
   return vendor?.company_name ?? "Unknown vendor";
 }
 
+/** Matches the tone logic used by SeverityChip in alerts/index.tsx. */
+function severityTone(severity: string): { badge: string; Icon: typeof TrendingDown } {
+  if (severity === "critical") {
+    return { badge: "bg-error-container text-on-error-container", Icon: TrendingDown };
+  }
+  if (severity === "info") {
+    return { badge: "bg-surface-container text-muted-foreground", Icon: Info };
+  }
+  return { badge: "bg-warning-container text-foreground", Icon: UserCog };
+}
+
 function ChangesPage() {
-  const { data: changes, isLoading } = useQuery({
+  const {
+    data: changes,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["changes", "list"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -63,6 +79,11 @@ function ChangesPage() {
         </p>
       </div>
 
+      {isError ? (
+        <div className="mt-8 rounded-2xl border border-destructive/30 bg-error-container px-4 py-3 text-sm text-on-error-container">
+          Changes could not be loaded. {error instanceof Error ? error.message : "Try again."}
+        </div>
+      ) : (
       <div className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-card">
         {isLoading ? (
           <p className="text-muted-foreground">Loading changes…</p>
@@ -71,10 +92,10 @@ function ChangesPage() {
         ) : (
           <div className="space-y-5">
             {rows.map((change) => {
-              const Icon = change.severity === "critical" ? TrendingDown : UserCog;
+              const { badge, Icon } = severityTone(change.severity);
               return (
                 <div key={change.id} className="flex gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-error-container text-on-error-container">
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${badge}`}>
                     <Icon className="h-4 w-4" />
                   </span>
                   <div>
@@ -104,6 +125,7 @@ function ChangesPage() {
           </div>
         )}
       </div>
+      )}
     </AppShell>
   );
 }

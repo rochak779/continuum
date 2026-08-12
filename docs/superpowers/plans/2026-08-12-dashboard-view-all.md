@@ -243,6 +243,8 @@ function ChangesPage() {
 }
 ```
 
+> **Note:** this was corrected during implementation (commit `b0b6475`) to type `previous_value`/`new_value` as `Json | null` instead of `unknown`, and to call `displayValue(change.previous_value)` / `displayValue(change.new_value)` without the `as never` cast — see the actual `changes.tsx` for the real signature.
+
 - [ ] **Step 2: Regenerate the route tree**
 
 Run: `npm run build`

@@ -80,7 +80,9 @@ time).
 
 New file `src/routes/_authenticated/expiries.tsx`. Query `vendor_documents`
 joined to `vendors(company_name)`, `expiry_date >= today`, ordered
-`expiry_date asc`, no limit. Same row shape as the dashboard's
+`expiry_date asc`, no limit (implemented as a separate `.in("id", vendorIds)`
+query against `vendors` rather than a nested-embed select, per the plan).
+Same row shape as the dashboard's
 "Upcoming Reviews & Expiries" panel (vendor name linked to
 `/vendors/$vendorId`, item label, expiry date), reusing
 `buildUpcomingExpiries` from `src/lib/dashboard-data.ts` (unchanged).

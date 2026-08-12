@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_authenticated/expiries")({
 });
 
 function ExpiriesPage() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["expiries", "list"],
     queryFn: async () => {
       const { data: documents, error } = await supabase
@@ -58,6 +58,11 @@ function ExpiriesPage() {
         </p>
       </div>
 
+      {isError ? (
+        <div className="mt-8 rounded-2xl border border-destructive/30 bg-error-container px-4 py-3 text-sm text-on-error-container">
+          Upcoming expiries could not be loaded. {error instanceof Error ? error.message : "Try again."}
+        </div>
+      ) : (
       <div className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-card">
         {isLoading ? (
           <p className="text-muted-foreground">Loading upcoming expiries…</p>
@@ -92,6 +97,7 @@ function ExpiriesPage() {
           </div>
         )}
       </div>
+      )}
     </AppShell>
   );
 }
