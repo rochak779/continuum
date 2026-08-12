@@ -1,22 +1,21 @@
 # Continuum
 
-<!-- TODO: describe the product — what it is and what it does. -->
+Continuum is a B2B SaaS platform for continuous vendor monitoring and risk management. It watches your vendors for the changes that actually matter — company status changes, director changes, overdue accounts and confirmation statements — and surfaces them as alerts before they become bigger problems.
+
+## What it does
+
+- **Continuous monitoring** — tracks each vendor against Companies House data and flags material changes (status, directors, filings).
+- **Dashboard** — an overview of vendor health, recent alerts, changes, and upcoming document expiries, with dedicated screens (`/alerts`, `/changes`, `/expiries`) to drill in.
+- **Document tracking** — extracts and tracks expiry dates on vendor documents (e.g. insurance certificates) so nothing lapses unnoticed.
+- **AI assistant** — a chat assistant with RAG over your vendor documents to answer questions about a vendor's status, risk, and paperwork.
+- **Critical alert emails** — notifies you by email when a vendor's monitoring turns up a critical issue.
+- **Vendor detail pages** — a full view per vendor combining Companies House data, alerts, changes, and documents.
 
 See [DESIGN.md](./DESIGN.md) for the design system (colors, typography, spacing, components) this UI is built against.
 
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/ebcce626-8aee-4aef-a0ce-454b5b1d5b0b).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
 ## Development
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
 
 ```sh
 git clone <this-repository-url>
