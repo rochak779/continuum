@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { extractDocumentFieldsFn } from "@/integrations/document-extraction/extract-document-fields-fn";
+import { embedDocumentChunksFn } from "@/integrations/document-extraction/embed-document-chunks-fn";
 import { getErrorMessage } from "@/lib/errors";
 import { formatFileSize, validateDocumentFile } from "@/lib/vendor-documents";
 
@@ -42,6 +43,7 @@ interface ReviewItem {
   fileSize: number;
   itemLabel: string;
   expiryDate: string; // "" or "YYYY-MM-DD", for the <input type="date"> value
+  extractedText: string;
   extracting: boolean;
 }
 
@@ -109,6 +111,7 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
           fileSize: file.size,
           itemLabel: "",
           expiryDate: "",
+          extractedText: "",
           extracting: EXTRACTABLE_CONTENT_TYPES.has(resolvedType),
         });
       }
@@ -133,6 +136,7 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
                         ...r,
                         itemLabel: result.itemLabel ?? r.itemLabel,
                         expiryDate: result.expiryDate ?? r.expiryDate,
+                        extractedText: result.extractedText ?? "",
                         extracting: false,
                       }
                     : r,
@@ -179,8 +183,30 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
         expiry_date: item.expiryDate || null,
       }));
 
-      const { error: insertError } = await supabase.from("vendor_documents").insert(rows);
+      const { data: insertedRows, error: insertError } = await supabase
+        .from("vendor_documents")
+        .insert(rows)
+        .select("id, storage_path");
       if (insertError) throw insertError;
+
+      // Best-effort, fire-and-forget: chunk + embed each document with
+      // extracted text so it's searchable via the AI assistant. Never blocks
+      // the save from completing (design spec §Error handling) -- matched by
+      // storage_path since it's unique per staged item and insert order
+      // isn't guaranteed to match.
+      for (const inserted of insertedRows ?? []) {
+        const reviewItem = review.find((r) => r.storagePath === inserted.storage_path);
+        if (!reviewItem?.extractedText) continue;
+        embedDocumentChunksFn({
+          data: {
+            vendorDocumentId: inserted.id,
+            vendorId,
+            extractedText: reviewItem.extractedText,
+          },
+        }).catch((err) => {
+          console.error("Failed to embed document for search:", err);
+        });
+      }
 
       setReview([]);
       await queryClient.invalidateQueries({ queryKey });
