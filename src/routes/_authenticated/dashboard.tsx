@@ -27,10 +27,9 @@ import {
   latestFailureByVendor,
   normalizeAlertSeverity,
 } from "@/lib/dashboard-data";
-import { alertAttributeLabel, describeAlertReason } from "@/lib/alert-labels";
+import { alertAttributeLabel, describeAlertReason, displayValue } from "@/lib/alert-labels";
 import { VendorStatusBadge } from "@/components/app/VendorStatusBadge";
 import { VENDOR_HEALTH_LABELS, type VendorHealth } from "@/lib/vendor-health";
-import type { Json } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -59,13 +58,6 @@ const HEALTH_COLORS: Record<VendorHealth, string> = {
   critical: "var(--destructive)",
   monitoring_issue: "var(--muted-foreground)",
 };
-
-function displayValue(value: Json | null): string {
-  if (value === null) return "Not provided";
-  if (Array.isArray(value)) return value.join(", ");
-  if (typeof value === "object") return Object.values(value).filter(Boolean).join(", ");
-  return String(value);
-}
 
 function initials(name: string) {
   return name.slice(0, 2).toUpperCase();

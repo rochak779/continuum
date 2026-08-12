@@ -4,6 +4,8 @@
 // both surfaces describe the same `attribute_checked` / `attribute_key`
 // vocabulary the same way.
 
+import type { Json } from "@/integrations/supabase/types";
+
 export const ALERT_ATTRIBUTE_LABELS: Record<string, string> = {
   company_status: "Company Status",
   company_name: "Company Name",
@@ -27,4 +29,12 @@ export function describeAlertReason(alert: {
   const previous = alert.previous_value ?? "unset";
   const next = alert.new_value ?? "unset";
   return `${label} changed from ${previous} to ${next}.`;
+}
+
+/** Renders a change-event jsonb value (string, array, or object) as plain text. */
+export function displayValue(value: Json | null): string {
+  if (value === null) return "Not provided";
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "object") return Object.values(value).filter(Boolean).join(", ");
+  return String(value);
 }
