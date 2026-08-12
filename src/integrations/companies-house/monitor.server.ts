@@ -166,14 +166,21 @@ export function createSupabaseMonitoringStore(db: AdminClient): MonitoringStore 
 
     async notifyCriticalAlerts(records: PersistedAlert[]): Promise<void> {
       if (records.length === 0) return;
+      const firstVendorId = records[0]!.vendorId;
+      if (!records.every((record) => record.vendorId === firstVendorId)) {
+        console.error("[notifications] notifyCriticalAlerts received a mixed-vendor batch", {
+          vendorIds: Array.from(new Set(records.map((record) => record.vendorId))),
+        });
+        return;
+      }
       try {
-        await notifyCriticalAlertsForVendor(db, records[0]!.vendorId, records);
+        await notifyCriticalAlertsForVendor(db, firstVendorId, records);
       } catch (error) {
         // Belt-and-braces: notify-critical-alerts.ts already swallows its
         // own errors, but this store method must never let a defect there
         // regress the monitoring pipeline either.
         console.error("[notifications] notifyCriticalAlerts threw unexpectedly", {
-          vendorId: records[0]?.vendorId,
+          vendorId: firstVendorId,
           error,
         });
       }

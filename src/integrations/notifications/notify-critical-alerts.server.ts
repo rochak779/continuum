@@ -15,7 +15,7 @@ type AdminClient = Awaited<typeof import("@/integrations/supabase/client.server"
  */
 function resolveSiteUrl(): string {
   const productionUrl = process.env["VERCEL_PROJECT_PRODUCTION_URL"];
-  return productionUrl ? `https://${productionUrl}` : "http://localhost:3000";
+  return productionUrl ? `https://${productionUrl}` : "http://localhost:8080";
 }
 
 export async function notifyCriticalAlertsForVendor(

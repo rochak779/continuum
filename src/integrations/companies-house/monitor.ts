@@ -260,7 +260,14 @@ export async function runCompaniesHouseCheck(
 
     const criticalAlerts = inserted.filter((alert) => alert.severity === "critical");
     if (criticalAlerts.length > 0) {
-      await store.notifyCriticalAlerts(criticalAlerts);
+      try {
+        await store.notifyCriticalAlerts(criticalAlerts);
+      } catch (error) {
+        console.error("[monitoring] notifyCriticalAlerts threw unexpectedly", {
+          vendorId,
+          error,
+        });
+      }
     }
   }
 
