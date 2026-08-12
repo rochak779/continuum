@@ -5,6 +5,7 @@ import { TrendingDown, UserCog } from "lucide-react";
 
 import { AppShell } from "@/components/app/AppShell";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { alertAttributeLabel, displayValue } from "@/lib/alert-labels";
 
 export const Route = createFileRoute("/_authenticated/changes")({
@@ -25,8 +26,8 @@ interface ChangeRow {
   id: string;
   vendor_id: string;
   attribute_key: string;
-  previous_value: unknown;
-  new_value: unknown;
+  previous_value: Json | null;
+  new_value: Json | null;
   severity: string;
   detected_at: string;
   vendors: { company_name: string } | null;
@@ -90,8 +91,8 @@ function ChangesPage() {
                       </span>
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {displayValue(change.previous_value as never)} →{" "}
-                      {displayValue(change.new_value as never)}
+                      {displayValue(change.previous_value)} →{" "}
+                      {displayValue(change.new_value)}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(change.detected_at), { addSuffix: true })}
