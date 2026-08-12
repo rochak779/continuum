@@ -7,6 +7,7 @@ import {
   type ChangeEventRecord,
   type FailureRecord,
   type MonitoringStore,
+  type PersistedAlert,
   type SnapshotRecord,
   type TrustProfileAttributeRecord,
 } from "./monitor";
@@ -17,10 +18,11 @@ import { normaliseCompanyProfile } from "./normalize";
 // insertAlerts keyed on dedupeKey.
 function createFakeStore() {
   const snapshots: (SnapshotRecord & { vendorId: string })[] = [];
-  const alerts: AlertRecord[] = [];
+  const alerts: PersistedAlert[] = [];
   const failures: FailureRecord[] = [];
   const trustProfileAttributes: TrustProfileAttributeRecord[] = [];
   const changeEvents: ChangeEventRecord[] = [];
+  const criticalNotifications: PersistedAlert[][] = [];
   const seenDedupeKeys = new Set<string>();
   const seenEventKeys = new Set<string>();
   const eventIdsByKey = new Map<string, string>();
@@ -59,14 +61,18 @@ function createFakeStore() {
       };
     },
     async insertAlerts(records) {
-      let inserted = 0;
+      const inserted: PersistedAlert[] = [];
       for (const r of records) {
         if (seenDedupeKeys.has(r.dedupeKey)) continue;
         seenDedupeKeys.add(r.dedupeKey);
-        alerts.push(r);
-        inserted += 1;
+        const persisted: PersistedAlert = { ...r, id: `alert-${alerts.length + 1}` };
+        alerts.push(persisted);
+        inserted.push(persisted);
       }
       return { inserted };
+    },
+    async notifyCriticalAlerts(records) {
+      criticalNotifications.push(records);
     },
     async recordFailure(record) {
       failures.push(record);
@@ -83,6 +89,7 @@ function createFakeStore() {
     failures,
     trustProfileAttributes,
     changeEvents,
+    criticalNotifications,
     monitoringStatuses,
   };
 }
@@ -342,6 +349,52 @@ describe("runCompaniesHouseCheck", () => {
     if (retry.status === "ok") expect(retry.eventsCreated).toBe(0);
     expect(changeEvents).toHaveLength(1);
     expect(alerts).toHaveLength(1);
+  });
+
+  it("notifies on a new critical alert but not on a new attention-only alert", async () => {
+    const { store, criticalNotifications } = createFakeStore();
+
+    // Baseline check (creates no alerts, no notifications).
+    await runCompaniesHouseCheck(
+      { vendorId: VENDOR, companyNumber: "00000006" },
+      { fetchProfile: async () => okResult(), store },
+    );
+    expect(criticalNotifications).toHaveLength(0);
+
+    // Attention-severity change: company_name changes, nothing critical.
+    await runCompaniesHouseCheck(
+      { vendorId: VENDOR, companyNumber: "00000006" },
+      { fetchProfile: async () => okResult({ company_name: "ACME HOLDINGS LTD" }), store },
+    );
+    expect(criticalNotifications).toHaveLength(0);
+
+    // Critical-severity change: company_status -> dissolved.
+    await runCompaniesHouseCheck(
+      { vendorId: VENDOR, companyNumber: "00000006" },
+      { fetchProfile: async () => okResult({ company_status: "dissolved" }), store },
+    );
+    expect(criticalNotifications).toHaveLength(1);
+    expect(criticalNotifications[0]).toHaveLength(1);
+    expect(criticalNotifications[0]?.[0]).toMatchObject({
+      attribute: "company_status",
+      severity: "critical",
+      newValue: "dissolved",
+    });
+  });
+
+  it("does not notify again when a recheck only re-confirms an existing alert", async () => {
+    const { store, criticalNotifications } = createFakeStore();
+    const deps = { fetchProfile: async () => okResult({ company_status: "dissolved" }), store };
+
+    // First check: baseline already dissolved -> one critical alert, one notification.
+    await runCompaniesHouseCheck({ vendorId: VENDOR, companyNumber: "00000006" }, deps);
+    expect(criticalNotifications).toHaveLength(1);
+
+    // Companies House re-fetch with the same dissolved status: the Trust
+    // Profile already matches, so detectChanges finds nothing new and
+    // insertAlerts never runs again for this attribute.
+    await runCompaniesHouseCheck({ vendorId: VENDOR, companyNumber: "00000006" }, deps);
+    expect(criticalNotifications).toHaveLength(1);
   });
 
   it("keeps informational events in history without creating alerts", () => {
