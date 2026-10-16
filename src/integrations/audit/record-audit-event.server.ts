@@ -10,15 +10,15 @@
 // `audit_events` predates the generated Database types
 // (supabase/migrations/20260810130000), so table access here is typed by
 // hand against the migration's column list rather than
-// `Database["public"]["Tables"]`; regenerate and switch over once the
+// `Database["continuum"]["Tables"]`; regenerate and switch over once the
 // Supabase types are refreshed.
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { UntypedSupabaseClient } from "@/integrations/supabase/untyped-client";
 
 import type { AuditEventInput, AuditEventRecord, AuditEventWriter } from "./types";
 
 // Untyped on purpose — see file header.
-type AdminClient = SupabaseClient;
+type AdminClient = UntypedSupabaseClient;
 
 interface AuditEventRow {
   id: string;

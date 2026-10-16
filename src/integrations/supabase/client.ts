@@ -2,13 +2,16 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://vwykkpoctjnhawtmgjvq.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3eWtrcG9jdGpuaGF3dG1nanZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNTE1MTcsImV4cCI6MjEwMTkyNzUxN30.SGBUM-U-naPHq41J7-_5wQavPFfX7gAXgQR85pu9Ltg";
+const SUPABASE_URL = "https://aqvpdfdfsterpdumjglx.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxdnBkZmRmc3RlcnBkdW1qZ2x4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczNzQxNjUsImV4cCI6MjEwMjk1MDE2NX0.lk37MMadjVNYb-S02Ay_lf_TFEFKZVRyTL5-Z94jgMc";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+// Continuum's tables live in the `continuum` schema of the "Rochak's Hobby"
+// Supabase project, shared with other apps (docs/shared-supabase-db.md).
+export const supabase = createClient<Database, 'continuum'>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  db: { schema: 'continuum' },
   auth: {
     storage: typeof window !== 'undefined' ? localStorage : undefined,
     persistSession: true,

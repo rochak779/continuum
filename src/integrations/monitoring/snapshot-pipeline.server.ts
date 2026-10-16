@@ -7,10 +7,10 @@
 // `monitoring_runs` and `external_snapshots` predate the generated
 // Database types (supabase/migrations/20260810130000), so table access
 // here is typed by hand against the migration's column list rather than
-// `Database["public"]["Tables"]`; regenerate and switch over once the
+// `Database["continuum"]["Tables"]`; regenerate and switch over once the
 // Supabase types are refreshed.
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { UntypedSupabaseClient } from "@/integrations/supabase/untyped-client";
 
 import { createSupabaseAuditEventWriter } from "../audit/record-audit-event.server";
 import {
@@ -28,7 +28,7 @@ const UNIQUE_VIOLATION = "23505";
 // Untyped on purpose: `monitoring_runs` / `external_snapshots` aren't in the
 // generated Database type yet (see file header), so this accepts the real
 // `supabaseAdmin` client structurally rather than requiring its full type.
-type AdminClient = SupabaseClient;
+type AdminClient = UntypedSupabaseClient;
 
 interface MonitoringRunRow {
   id: string;

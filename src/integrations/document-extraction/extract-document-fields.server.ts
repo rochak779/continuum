@@ -1,6 +1,6 @@
 // src/integrations/document-extraction/extract-document-fields.server.ts
 //
-// Server-only: downloads a document from the private vendor-documents
+// Server-only: downloads a document from the private continuum-vendor-documents
 // Storage bucket and asks Gemini to identify what the document is, when it
 // expires, and to transcribe its full text (used later to embed the
 // document for the AI assistant's semantic search --
@@ -19,7 +19,7 @@ import { google } from "@ai-sdk/google";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 
-const BUCKET = "vendor-documents";
+const BUCKET = "continuum-vendor-documents";
 
 const EXTRACTABLE_CONTENT_TYPES = new Set(["application/pdf", "image/png", "image/jpeg"]);
 

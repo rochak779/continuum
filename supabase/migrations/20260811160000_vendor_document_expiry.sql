@@ -5,6 +5,6 @@
 -- AI-extracted (PDF/image) or manually entered (all other file types).
 -- Both nullable: not every document has (or needs) an expiry date.
 
-alter table public.vendor_documents
+alter table continuum.vendor_documents
   add column item_label text,
   add column expiry_date date;

@@ -20,10 +20,10 @@
 -- assistant's getVendorAuditHistory tool for whenever that separate issue
 -- is fixed.
 
-CREATE TABLE public.audit_events (
+CREATE TABLE continuum.audit_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organisation_id uuid NOT NULL,
-  vendor_id uuid REFERENCES public.vendors(id) ON DELETE SET NULL,
+  vendor_id uuid REFERENCES continuum.vendors(id) ON DELETE SET NULL,
   actor_type text NOT NULL CHECK (actor_type IN ('user', 'system', 'service')),
   actor_id uuid,
   event_type text NOT NULL,
@@ -34,14 +34,14 @@ CREATE TABLE public.audit_events (
 );
 
 CREATE INDEX audit_events_vendor_created_idx
-  ON public.audit_events(vendor_id, created_at DESC) WHERE vendor_id IS NOT NULL;
+  ON continuum.audit_events(vendor_id, created_at DESC) WHERE vendor_id IS NOT NULL;
 
 -- Strictly append-only: no UPDATE/DELETE grant to any role, including
 -- service_role (matches the archived migration's intent).
-GRANT SELECT ON public.audit_events TO authenticated;
-GRANT SELECT, INSERT ON public.audit_events TO service_role;
+GRANT SELECT ON continuum.audit_events TO authenticated;
+GRANT SELECT, INSERT ON continuum.audit_events TO service_role;
 
-ALTER TABLE public.audit_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE continuum.audit_events ENABLE ROW LEVEL SECURITY;
 
 -- Vendor-level events only (vendor_id IS NOT NULL) are visible to their
 -- owner, same join pattern as every other monitoring table. There is no
@@ -50,11 +50,11 @@ ALTER TABLE public.audit_events ENABLE ROW LEVEL SECURITY;
 -- `authenticated` under this policy -- consistent with nothing currently
 -- writing them.
 CREATE POLICY "Owners can view their vendor audit events"
-  ON public.audit_events FOR SELECT TO authenticated
+  ON continuum.audit_events FOR SELECT TO authenticated
   USING (
     vendor_id IS NOT NULL
     AND EXISTS (
-      SELECT 1 FROM public.vendors v
+      SELECT 1 FROM continuum.vendors v
       WHERE v.id = vendor_id AND v.owner_id = auth.uid()
     )
   );

@@ -7,7 +7,7 @@
 // `alerts` / `change_events` / `trust_profile_attributes` / `audit_events`
 // predate the generated Database types (supabase/migrations/20260810130000),
 // so table access here is typed by hand against the migration's column list
-// rather than `Database["public"]["Tables"]`; regenerate and switch over
+// rather than `Database["continuum"]["Tables"]`; regenerate and switch over
 // once the Supabase types are refreshed.
 //
 // No cross-table transaction: each write below is a separate round trip,
@@ -17,13 +17,13 @@
 // resolved without an audit trail entry; acceptable for MVP, revisit with a
 // Postgres function if it needs to be atomic.
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { UntypedSupabaseClient } from "@/integrations/supabase/untyped-client";
 
 import { createSupabaseAuditEventWriter } from "../audit/record-audit-event.server";
 import type { AlertRecord, AlertResolutionStore, ChangeEventRecord, ResolutionType } from "./types";
 
 // Untyped on purpose — see file header.
-type AdminClient = SupabaseClient;
+type AdminClient = UntypedSupabaseClient;
 
 interface AlertRow {
   id: string;

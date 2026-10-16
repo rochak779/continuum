@@ -8,7 +8,7 @@
 // dev script). It must ONLY be imported from server contexts — it reads the
 // service-role Supabase client and the Companies House API key.
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { UntypedSupabaseClient } from "@/integrations/supabase/untyped-client";
 
 import type { AuditActor } from "../audit/types";
 import { createCompaniesHouseProvider } from "./provider.server";
@@ -23,7 +23,7 @@ const COMPANIES_HOUSE_IDENTIFIER_TYPE = "COMPANIES_HOUSE_NUMBER";
 
 // Untyped on purpose: `vendor_identifiers` isn't in the generated Database
 // type yet — see snapshot-pipeline.server.ts's file header.
-type AdminClient = SupabaseClient;
+type AdminClient = UntypedSupabaseClient;
 
 export type RunVendorCheckOutcome =
   SnapshotPipelineOutcome | { status: "no_identifier" } | { status: "vendor_not_found" };
