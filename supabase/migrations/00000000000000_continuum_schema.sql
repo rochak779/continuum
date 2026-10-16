@@ -1,7 +1,7 @@
 -- Continuum's own schema in the shared "Rochak's Hobby" Supabase project.
 -- See docs/shared-supabase-db.md. Applied by scripts/db-migrate.sh.
 create schema if not exists continuum;
-comment on schema continuum is 'Continuum (vendor risk monitoring) — github.com/rochak779/continuum-new';
+comment on schema continuum is 'Continuum (vendor risk monitoring) — github.com/rochak779/continuum';
 
 grant usage on schema continuum to anon, authenticated, service_role;
 

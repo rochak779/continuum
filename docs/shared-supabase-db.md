@@ -340,6 +340,6 @@ Update this table in each repo's copy when you add an app. Also comment on the s
 |---|---|---|---|---|---|
 | `umeed` | Umeed (family elder-care) | github.com/rochak779/Umeed | `umeed-poll-due-work` | `umeed-poll-due-work` (paused) | — |
 | `marg` | Marg (AI learning app). Moved out of `public` in place, 2026-09-24. | github.com/rochak779/Marg | — | — | — |
-| `continuum` | Continuum (vendor risk monitoring). Rebuilt fresh from its own project, 2026-10-16. | github.com/rochak779/continuum-new | — | `continuum-companies-house-monitoring` | `continuum-vendor-documents` |
+| `continuum` | Continuum (vendor risk monitoring). Rebuilt fresh from its own project, 2026-10-16. | github.com/rochak779/continuum | — | `continuum-companies-house-monitoring` | `continuum-vendor-documents` |
 
 No app may add to `public`.
