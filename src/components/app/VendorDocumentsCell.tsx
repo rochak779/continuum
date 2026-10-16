@@ -6,16 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
-import { extractDocumentFieldsFn } from "@/integrations/document-extraction/extract-document-fields-fn";
 import { getErrorMessage } from "@/lib/errors";
 import { formatFileSize, validateDocumentFile } from "@/lib/vendor-documents";
 
 const BUCKET = "vendor-documents";
 
 // Kept in sync with EXTRACTABLE_CONTENT_TYPES in
-// extract-document-fields.server.ts. Duplicated (rather than imported)
-// because that module is server-only and must never reach the client
-// bundle; this just decides whether to show a "detecting…" spinner.
+// api/extract-document-fields.ts. Duplicated (rather than imported)
+// because that module runs in a separate Vercel function and must never
+// reach the client bundle; this just decides whether to show a
+// "detecting…" spinner.
 const EXTRACTABLE_CONTENT_TYPES = new Set(["application/pdf", "image/png", "image/jpeg"]);
 
 const EXTENSION_MIME_TYPES: Record<string, string> = {
@@ -33,6 +33,34 @@ function resolveMimeType(file: File): string {
   if (file.type) return file.type;
   const extension = file.name.split(".").pop()?.toLowerCase();
   return (extension && EXTENSION_MIME_TYPES[extension]) || "application/octet-stream";
+}
+
+interface ExtractedDocumentFields {
+  itemLabel: string | null;
+  expiryDate: string | null;
+}
+
+// Calls the /api/extract-document-fields Vercel function directly — not a
+// TanStack Start server function. See api/extract-document-fields.ts for
+// why (a TanStack server function here breaks production SSR).
+async function extractDocumentFields(input: {
+  storagePath: string;
+  contentType: string;
+}): Promise<ExtractedDocumentFields> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("You need to be signed in");
+
+  const response = await fetch("/api/extract-document-fields", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error(`Extraction request failed (${response.status})`);
+  return response.json();
 }
 
 interface ReviewItem {
@@ -122,9 +150,7 @@ export function VendorDocumentsCell({ vendorId }: { vendorId: string }) {
         setReview((current) => [...current, ...staged]);
         for (const item of staged) {
           if (!item.extracting) continue;
-          extractDocumentFieldsFn({
-            data: { storagePath: item.storagePath, contentType: item.contentType },
-          })
+          extractDocumentFields({ storagePath: item.storagePath, contentType: item.contentType })
             .then((result) => {
               setReview((current) =>
                 current.map((r) =>
