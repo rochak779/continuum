@@ -19,7 +19,7 @@
 
 import { google } from "@ai-sdk/google";
 import { embed } from "ai";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { UntypedSupabaseClient } from "@/integrations/supabase/untyped-client";
 
 import { calculateVendorHealth, type HealthAlert, type MonitoringStatus } from "@/lib/vendor-health";
 import { MAX_CHUNKS } from "./tools";
@@ -34,7 +34,7 @@ import type {
 } from "./store";
 
 // Untyped on purpose -- see file header.
-type ScopedClient = SupabaseClient;
+type ScopedClient = UntypedSupabaseClient;
 
 export function createSupabaseAssistantStore(db: ScopedClient): AssistantDataStore {
   return {

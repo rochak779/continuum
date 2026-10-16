@@ -1,1 +1,4 @@
-project_id = "vwykkpoctjnhawtmgjvq"
+# Local CLI config only. Continuum runs in the `continuum` schema of the
+# shared "Rochak's Hobby" project; see docs/shared-supabase-db.md. Don't
+# `supabase link` this repo to it — pass --project-ref per command instead.
+project_id = "continuum"

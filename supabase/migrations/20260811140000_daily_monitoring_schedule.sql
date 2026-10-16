@@ -6,16 +6,16 @@
 -- 24h cadence set in markChecked — is normally "everyone, once a day").
 --
 -- cron.schedule() upserts by job name, so this just updates the existing
--- 'companies-house-monitoring' job in place.
+-- 'continuum-companies-house-monitoring' job in place.
 SELECT cron.schedule(
-  'companies-house-monitoring',
+  'continuum-companies-house-monitoring',
   '0 6 * * *',
   $$
     SELECT net.http_post(
-      url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'monitoring_app_url') || '/api/monitoring/companies-house',
+      url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'continuum_monitoring_app_url') || '/api/monitoring/companies-house',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
-        'x-monitoring-secret', (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'monitoring_scheduler_secret')
+        'x-monitoring-secret', (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'continuum_monitoring_scheduler_secret')
       ),
       body := '{}'::jsonb
     );

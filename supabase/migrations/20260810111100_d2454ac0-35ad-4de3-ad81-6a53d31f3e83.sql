@@ -1,4 +1,4 @@
-CREATE TABLE public.vendors (
+CREATE TABLE continuum.vendors (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   company_name text NOT NULL,
@@ -13,16 +13,16 @@ CREATE TABLE public.vendors (
   updated_at timestamp with time zone NOT NULL DEFAULT now()
 );
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.vendors TO authenticated;
-GRANT ALL ON public.vendors TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON continuum.vendors TO authenticated;
+GRANT ALL ON continuum.vendors TO service_role;
 
-ALTER TABLE public.vendors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE continuum.vendors ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view their own vendors" ON public.vendors FOR SELECT TO authenticated USING (auth.uid() = owner_id);
-CREATE POLICY "Users can create their own vendors" ON public.vendors FOR INSERT TO authenticated WITH CHECK (auth.uid() = owner_id);
-CREATE POLICY "Users can update their own vendors" ON public.vendors FOR UPDATE TO authenticated USING (auth.uid() = owner_id) WITH CHECK (auth.uid() = owner_id);
-CREATE POLICY "Users can delete their own vendors" ON public.vendors FOR DELETE TO authenticated USING (auth.uid() = owner_id);
+CREATE POLICY "Users can view their own vendors" ON continuum.vendors FOR SELECT TO authenticated USING (auth.uid() = owner_id);
+CREATE POLICY "Users can create their own vendors" ON continuum.vendors FOR INSERT TO authenticated WITH CHECK (auth.uid() = owner_id);
+CREATE POLICY "Users can update their own vendors" ON continuum.vendors FOR UPDATE TO authenticated USING (auth.uid() = owner_id) WITH CHECK (auth.uid() = owner_id);
+CREATE POLICY "Users can delete their own vendors" ON continuum.vendors FOR DELETE TO authenticated USING (auth.uid() = owner_id);
 
-CREATE TRIGGER update_vendors_updated_at BEFORE UPDATE ON public.vendors FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_vendors_updated_at BEFORE UPDATE ON continuum.vendors FOR EACH ROW EXECUTE FUNCTION continuum.update_updated_at_column();
 
-CREATE INDEX vendors_owner_id_idx ON public.vendors(owner_id);
+CREATE INDEX vendors_owner_id_idx ON continuum.vendors(owner_id);

@@ -11,7 +11,7 @@ import { embedDocumentChunksFn } from "@/integrations/document-extraction/embed-
 import { getErrorMessage } from "@/lib/errors";
 import { formatFileSize, validateDocumentFile } from "@/lib/vendor-documents";
 
-const BUCKET = "vendor-documents";
+const BUCKET = "continuum-vendor-documents";
 
 // Kept in sync with EXTRACTABLE_CONTENT_TYPES in
 // extract-document-fields.server.ts. Duplicated (rather than imported)

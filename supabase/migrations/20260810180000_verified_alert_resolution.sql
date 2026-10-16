@@ -1,8 +1,8 @@
-ALTER TABLE public.trust_profile_attributes
+ALTER TABLE continuum.trust_profile_attributes
   ADD COLUMN updated_from_change_event_id uuid
-    REFERENCES public.vendor_change_events(id) ON DELETE SET NULL;
+    REFERENCES continuum.vendor_change_events(id) ON DELETE SET NULL;
 
-ALTER TABLE public.vendor_monitoring_alerts
+ALTER TABLE continuum.vendor_monitoring_alerts
   ADD COLUMN resolved_at timestamptz,
   ADD COLUMN resolved_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   ADD COLUMN resolution_type text
@@ -10,12 +10,12 @@ ALTER TABLE public.vendor_monitoring_alerts
 
 -- Alert verification is a single transaction: accept the observed value,
 -- resolve its event and alert, and retain the event's immutable old value.
-CREATE OR REPLACE FUNCTION public.verify_vendor_monitoring_alert(p_alert_id uuid)
+CREATE OR REPLACE FUNCTION continuum.verify_vendor_monitoring_alert(p_alert_id uuid)
 RETURNS boolean
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = continuum, extensions, pg_temp AS $$
 DECLARE
-  selected_alert public.vendor_monitoring_alerts%ROWTYPE;
-  selected_event public.vendor_change_events%ROWTYPE;
+  selected_alert continuum.vendor_monitoring_alerts%ROWTYPE;
+  selected_event continuum.vendor_change_events%ROWTYPE;
   actor_id uuid := auth.uid();
 BEGIN
   SELECT a.* INTO selected_alert
@@ -59,6 +59,6 @@ BEGIN
 END;
 $$;
 
-REVOKE UPDATE ON public.vendor_monitoring_alerts FROM authenticated;
-REVOKE ALL ON FUNCTION public.verify_vendor_monitoring_alert(uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.verify_vendor_monitoring_alert(uuid) TO authenticated;
+REVOKE UPDATE ON continuum.vendor_monitoring_alerts FROM authenticated;
+REVOKE ALL ON FUNCTION continuum.verify_vendor_monitoring_alert(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION continuum.verify_vendor_monitoring_alert(uuid) TO authenticated;

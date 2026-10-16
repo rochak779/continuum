@@ -8,7 +8,7 @@
 -- not require build-time data to produce a good index, so it doesn't have
 -- this problem.
 
-DROP INDEX IF EXISTS public.document_chunks_embedding_idx;
+DROP INDEX IF EXISTS continuum.document_chunks_embedding_idx;
 
-CREATE INDEX document_chunks_embedding_idx ON public.document_chunks
+CREATE INDEX document_chunks_embedding_idx ON continuum.document_chunks
   USING hnsw (embedding vector_cosine_ops);

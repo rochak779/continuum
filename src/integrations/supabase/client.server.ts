@@ -43,7 +43,10 @@ function createSupabaseAdminClient() {
     throw new Error(message);
   }
 
-  return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  return createClient<Database, 'continuum'>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    // Continuum's tables live in the `continuum` schema of a Supabase
+    // project shared with other apps (docs/shared-supabase-db.md).
+    db: { schema: 'continuum' },
     global: {
       fetch: createSupabaseFetch(SUPABASE_SERVICE_ROLE_KEY),
     },

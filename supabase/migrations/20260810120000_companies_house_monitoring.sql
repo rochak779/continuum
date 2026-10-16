@@ -13,13 +13,13 @@
 --    read by owners through RLS scoped via vendors.owner_id.
 
 -- 1. Vendor company number -------------------------------------------------
-ALTER TABLE public.vendors
+ALTER TABLE continuum.vendors
   ADD COLUMN IF NOT EXISTS companies_house_number text;
 
 -- 2. Historical company snapshots (append-only) ----------------------------
-CREATE TABLE public.vendor_company_snapshots (
+CREATE TABLE continuum.vendor_company_snapshots (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  vendor_id uuid NOT NULL REFERENCES public.vendors(id) ON DELETE CASCADE,
+  vendor_id uuid NOT NULL REFERENCES continuum.vendors(id) ON DELETE CASCADE,
   source text NOT NULL DEFAULT 'companies_house',
   company_number text NOT NULL,
   company_name text,
@@ -38,24 +38,24 @@ CREATE TABLE public.vendor_company_snapshots (
 );
 
 CREATE INDEX vendor_company_snapshots_vendor_idx
-  ON public.vendor_company_snapshots(vendor_id, checked_at DESC);
+  ON continuum.vendor_company_snapshots(vendor_id, checked_at DESC);
 
-GRANT SELECT ON public.vendor_company_snapshots TO authenticated;
-GRANT ALL ON public.vendor_company_snapshots TO service_role;
+GRANT SELECT ON continuum.vendor_company_snapshots TO authenticated;
+GRANT ALL ON continuum.vendor_company_snapshots TO service_role;
 
-ALTER TABLE public.vendor_company_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE continuum.vendor_company_snapshots ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Owners can view their vendor snapshots"
-  ON public.vendor_company_snapshots FOR SELECT TO authenticated
+  ON continuum.vendor_company_snapshots FOR SELECT TO authenticated
   USING (EXISTS (
-    SELECT 1 FROM public.vendors v
+    SELECT 1 FROM continuum.vendors v
     WHERE v.id = vendor_id AND v.owner_id = auth.uid()
   ));
 
 -- 3. Monitoring alerts -----------------------------------------------------
-CREATE TABLE public.vendor_monitoring_alerts (
+CREATE TABLE continuum.vendor_monitoring_alerts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  vendor_id uuid NOT NULL REFERENCES public.vendors(id) ON DELETE CASCADE,
+  vendor_id uuid NOT NULL REFERENCES continuum.vendors(id) ON DELETE CASCADE,
   source text NOT NULL DEFAULT 'companies_house',
   attribute_checked text NOT NULL,
   previous_value text,
@@ -70,40 +70,40 @@ CREATE TABLE public.vendor_monitoring_alerts (
 
 -- Enforces "do not create duplicate alerts for the same detected change".
 CREATE UNIQUE INDEX vendor_monitoring_alerts_dedupe_idx
-  ON public.vendor_monitoring_alerts(dedupe_key);
+  ON continuum.vendor_monitoring_alerts(dedupe_key);
 
 CREATE INDEX vendor_monitoring_alerts_vendor_idx
-  ON public.vendor_monitoring_alerts(vendor_id, detected_at DESC);
+  ON continuum.vendor_monitoring_alerts(vendor_id, detected_at DESC);
 
-GRANT SELECT, UPDATE ON public.vendor_monitoring_alerts TO authenticated;
-GRANT ALL ON public.vendor_monitoring_alerts TO service_role;
+GRANT SELECT, UPDATE ON continuum.vendor_monitoring_alerts TO authenticated;
+GRANT ALL ON continuum.vendor_monitoring_alerts TO service_role;
 
-ALTER TABLE public.vendor_monitoring_alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE continuum.vendor_monitoring_alerts ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Owners can view their vendor alerts"
-  ON public.vendor_monitoring_alerts FOR SELECT TO authenticated
+  ON continuum.vendor_monitoring_alerts FOR SELECT TO authenticated
   USING (EXISTS (
-    SELECT 1 FROM public.vendors v
+    SELECT 1 FROM continuum.vendors v
     WHERE v.id = vendor_id AND v.owner_id = auth.uid()
   ));
 
 -- Owners can update alert status (acknowledge / resolve) but not other fields'
 -- provenance; column-level enforcement is left to the app for now.
 CREATE POLICY "Owners can update their vendor alert status"
-  ON public.vendor_monitoring_alerts FOR UPDATE TO authenticated
+  ON continuum.vendor_monitoring_alerts FOR UPDATE TO authenticated
   USING (EXISTS (
-    SELECT 1 FROM public.vendors v
+    SELECT 1 FROM continuum.vendors v
     WHERE v.id = vendor_id AND v.owner_id = auth.uid()
   ))
   WITH CHECK (EXISTS (
-    SELECT 1 FROM public.vendors v
+    SELECT 1 FROM continuum.vendors v
     WHERE v.id = vendor_id AND v.owner_id = auth.uid()
   ));
 
 -- 4. Monitoring failures ---------------------------------------------------
-CREATE TABLE public.vendor_monitoring_failures (
+CREATE TABLE continuum.vendor_monitoring_failures (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  vendor_id uuid REFERENCES public.vendors(id) ON DELETE CASCADE,
+  vendor_id uuid REFERENCES continuum.vendors(id) ON DELETE CASCADE,
   company_number text,
   source text NOT NULL DEFAULT 'companies_house',
   error_type text NOT NULL,
@@ -113,16 +113,16 @@ CREATE TABLE public.vendor_monitoring_failures (
 );
 
 CREATE INDEX vendor_monitoring_failures_vendor_idx
-  ON public.vendor_monitoring_failures(vendor_id, checked_at DESC);
+  ON continuum.vendor_monitoring_failures(vendor_id, checked_at DESC);
 
-GRANT SELECT ON public.vendor_monitoring_failures TO authenticated;
-GRANT ALL ON public.vendor_monitoring_failures TO service_role;
+GRANT SELECT ON continuum.vendor_monitoring_failures TO authenticated;
+GRANT ALL ON continuum.vendor_monitoring_failures TO service_role;
 
-ALTER TABLE public.vendor_monitoring_failures ENABLE ROW LEVEL SECURITY;
+ALTER TABLE continuum.vendor_monitoring_failures ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Owners can view their vendor monitoring failures"
-  ON public.vendor_monitoring_failures FOR SELECT TO authenticated
+  ON continuum.vendor_monitoring_failures FOR SELECT TO authenticated
   USING (EXISTS (
-    SELECT 1 FROM public.vendors v
+    SELECT 1 FROM continuum.vendors v
     WHERE v.id = vendor_id AND v.owner_id = auth.uid()
   ));

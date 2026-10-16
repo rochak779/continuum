@@ -8,7 +8,8 @@
 
 import { google } from "@ai-sdk/google";
 import { generateText, stepCountIs } from "ai";
-import type { SupabaseClient } from "@supabase/supabase-js";
+
+import type { UntypedSupabaseClient } from "@/integrations/supabase/untyped-client";
 
 import { buildAssistantTools } from "./build-ai-tools";
 import { createSupabaseAssistantStore } from "./store.server";
@@ -20,7 +21,7 @@ export interface AssistantChatMessage {
 }
 
 export interface RunAssistantChatInput {
-  supabase: SupabaseClient;
+  supabase: UntypedSupabaseClient;
   userId: string;
   messages: AssistantChatMessage[];
 }

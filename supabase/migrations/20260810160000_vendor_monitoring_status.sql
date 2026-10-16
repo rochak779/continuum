@@ -1,6 +1,6 @@
 -- Pipeline health is stored separately from business-facing vendor health.
 -- Vendor health is computed from this status plus unresolved alerts.
-ALTER TABLE public.vendors
+ALTER TABLE continuum.vendors
   ADD COLUMN monitoring_status text NOT NULL DEFAULT 'not_monitored'
   CHECK (monitoring_status IN (
     'not_monitored',
@@ -11,4 +11,4 @@ ALTER TABLE public.vendors
   ));
 
 CREATE INDEX vendors_monitoring_status_idx
-  ON public.vendors(owner_id, monitoring_status);
+  ON continuum.vendors(owner_id, monitoring_status);

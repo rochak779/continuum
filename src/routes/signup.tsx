@@ -152,32 +152,27 @@ function SignupPage() {
         password: detailsParsed.data.password,
         options: {
           emailRedirectTo: window.location.origin,
+          // auth.users is shared with other apps; keep our keys under
+          // `continuum`. The profile row and team invites are created from
+          // this on first sign-in (src/lib/continuum-profile.ts).
           data: {
-            full_name: detailsParsed.data.fullName,
-            organization_name: orgParsed.data.organizationName,
-            country: orgParsed.data.country,
-            industry: orgParsed.data.industry,
-            company_size: orgParsed.data.companySize,
-            phone,
-            designation: detailsParsed.data.designation,
-            team_invites: filledInvites.map((i) => ({
-              email: i.email.trim(),
-              role: i.role,
-            })),
+            continuum: {
+              full_name: detailsParsed.data.fullName,
+              organization_name: orgParsed.data.organizationName,
+              country: orgParsed.data.country,
+              industry: orgParsed.data.industry,
+              company_size: orgParsed.data.companySize,
+              phone,
+              designation: detailsParsed.data.designation,
+              team_invites: filledInvites.map((i) => ({
+                email: i.email.trim(),
+                role: i.role,
+              })),
+            },
           },
         },
       });
       if (signUpError) throw signUpError;
-
-      if (data.session && filledInvites.length > 0 && data.user) {
-        await supabase.from("team_invites").insert(
-          filledInvites.map((i) => ({
-            inviter_id: data.user!.id,
-            email: i.email.trim(),
-            role: i.role,
-          })),
-        );
-      }
 
       if (!data.session) {
         setNotice(

@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "monitor:check": "bun run scripts/check-vendor-monitoring.ts",
-    "verify:tenant-isolation": "bash scripts/verify-tenant-isolation.sh"
+    "verify:tenant-isolation": "bash scripts/verify-tenant-isolation.sh",
+    "db:migrate": "scripts/db-migrate.sh"
   },
   "overrides": {
     "h3": "2.0.1-rc.22"

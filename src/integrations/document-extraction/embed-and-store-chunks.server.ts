@@ -10,12 +10,12 @@
 
 import { google } from "@ai-sdk/google";
 import { embedMany } from "ai";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { UntypedSupabaseClient } from "@/integrations/supabase/untyped-client";
 
 import { embedAndStoreChunks, type EmbedAndStoreChunksInput } from "./embed-and-store-chunks";
 
 // Untyped on purpose -- see file header.
-type ScopedClient = SupabaseClient;
+type ScopedClient = UntypedSupabaseClient;
 
 export async function embedAndStoreDocumentChunks(
   db: ScopedClient,
