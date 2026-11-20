@@ -100,7 +100,11 @@ function Index() {
         <div className="mx-auto flex max-w-[1280px] flex-col items-center justify-between gap-4 px-4 py-6 text-sm md:flex-row md:px-8">
           <span className="font-semibold">Continuum</span>
           <span className="text-muted-foreground">
-            © 2026 Continuum. All rights reserved.
+            © 2026 Continuum. All rights reserved. Built by{" "}
+            <a href="https://www.rochakagarwal.com" className="underline underline-offset-4 hover:text-foreground">
+              Rochak Agarwal
+            </a>
+            .
           </span>
           <div className="flex gap-6 text-muted-foreground">
             <a href="#" className="hover:text-foreground">Privacy Policy</a>
