@@ -59,3 +59,7 @@ npm run dev
 See [DESIGN.md](./DESIGN.md) for the design system and [docs/current-architecture.md](docs/current-architecture.md) for how monitoring works.
 
 </details>
+
+---
+
+Built by [Rochak Agarwal](https://www.rochakagarwal.com). Read the full case study: [Continuum on rochakagarwal.com](https://www.rochakagarwal.com/projects/continuum).
